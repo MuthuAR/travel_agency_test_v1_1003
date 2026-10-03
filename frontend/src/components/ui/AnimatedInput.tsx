@@ -1,11 +1,7 @@
 import { forwardRef, useId } from 'react';
-import { Box, Text, chakra, shouldForwardProp } from '@chakra-ui/react';
-import { isValidMotionProp, motion } from 'framer-motion';
+import { Box, Text, chakra } from '@chakra-ui/react';
 import type { HTMLMotionProps } from 'framer-motion';
-
-const MotionInput = chakra(motion.input, {
-  shouldForwardProp: (prop: string) => isValidMotionProp(prop) || shouldForwardProp(prop),
-});
+import { MotionInput } from './motionChakra';
 
 interface AnimatedInputProps extends HTMLMotionProps<'input'> {
   label?: string;

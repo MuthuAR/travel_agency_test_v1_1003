@@ -1,10 +1,5 @@
-import { chakra, shouldForwardProp } from '@chakra-ui/react';
-import { isValidMotionProp, motion } from 'framer-motion';
 import type { ReactNode } from 'react';
-
-const MotionDiv = chakra(motion.div, {
-  shouldForwardProp: (prop: string) => isValidMotionProp(prop) || shouldForwardProp(prop),
-});
+import { MotionDiv } from './motionChakra';
 
 interface PageWrapperProps {
   children: ReactNode;

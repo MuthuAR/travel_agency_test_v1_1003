@@ -1,10 +1,5 @@
-import { chakra, shouldForwardProp } from '@chakra-ui/react';
-import { isValidMotionProp, motion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
-
-const MotionButton = chakra(motion.button, {
-  shouldForwardProp: (prop: string) => isValidMotionProp(prop) || shouldForwardProp(prop),
-});
+import { MotionButton } from './motionChakra';
 
 type GradientButtonProps = HTMLMotionProps<'button'>;
 

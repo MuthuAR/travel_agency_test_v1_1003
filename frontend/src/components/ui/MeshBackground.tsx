@@ -1,9 +1,5 @@
-import { Box, chakra, shouldForwardProp } from '@chakra-ui/react';
-import { isValidMotionProp, motion } from 'framer-motion';
-
-const MotionDiv = chakra(motion.div, {
-  shouldForwardProp: (prop: string) => isValidMotionProp(prop) || shouldForwardProp(prop),
-});
+import { Box } from '@chakra-ui/react';
+import { MotionDiv } from './motionChakra';
 
 export function MeshBackground() {
   return (
