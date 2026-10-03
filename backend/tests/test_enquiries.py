@@ -385,3 +385,216 @@ def test_enquiry_no_list_and_detail_agree_and_ids_stay_global(
 
     page2 = client.get(URL, params={"page": 2, "page_size": 1}, headers=headers_b).json()
     assert [(i["id"], i["enquiry_no"]) for i in page2["items"]] == [(b1.id, 1)]
+
+
+# ---------- organization enquiries with passengers ----------
+
+
+def _person(**overrides: Any) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "name": "  Ravi   Kumar ",
+        "mobile": "98765 00001",
+        "gender": "male",
+        "spoken_languages": ["English", " Tamil ", "English"],
+        "communication_mediums": ["sms", "whatsapp", "sms"],
+    }
+    data.update(overrides)
+    return data
+
+
+def _org_payload(**overrides: Any) -> dict[str, Any]:
+    data = _payload(passengers=[_person()])
+    del data["adults_count"]
+    del data["kids_count"]
+    data.update(overrides)
+    return data
+
+
+def _org_headers(
+    make_user: MakeUser, login_headers: Callable[..., dict[str, str]], mobile: str = "9111111111"
+) -> dict[str, str]:
+    make_user(mobile=mobile, account_type="organization", organization_name="Acme Travels")
+    return login_headers(mobile)
+
+
+def test_org_enquiry_with_one_passenger(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+
+    response = client.post(URL, json=_org_payload(), headers=headers)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["adults_count"] == 1
+    assert body["kids_count"] == 0
+    assert body["additional_travellers_count"] == 0
+    assert len(body["passengers"]) == 1
+    passenger = body["passengers"][0]
+    assert passenger["position"] == 1
+    assert passenger["name"] == "Ravi Kumar"
+    assert passenger["mobile"] == "9876500001"
+    assert passenger["gender"] == "male"
+    assert passenger["spoken_languages"] == ["English", "Tamil"]
+    assert passenger["communication_mediums"] == ["sms", "whatsapp"]
+
+
+def test_org_enquiry_with_several_passengers_and_additional(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+    people = [
+        _person(name="Zed", mobile="9000000003"),
+        _person(name="Amy", mobile="9000000001", gender="female"),
+        _person(name="Moe", mobile="9000000002", gender="other"),
+    ]
+
+    created = client.post(
+        URL,
+        json=_org_payload(passengers=people, additional_travellers_count=4),
+        headers=headers,
+    )
+
+    assert created.status_code == 201
+    body = created.json()
+    assert body["adults_count"] == 7
+    assert body["kids_count"] == 0
+    assert body["additional_travellers_count"] == 4
+    assert [p["name"] for p in body["passengers"]] == ["Zed", "Amy", "Moe"]
+    assert [p["position"] for p in body["passengers"]] == [1, 2, 3]
+    detail = client.get(f"{URL}/{body['id']}", headers=headers).json()
+    assert [p["name"] for p in detail["passengers"]] == ["Zed", "Amy", "Moe"]
+    listed = client.get(URL, headers=headers).json()["items"][0]
+    assert [p["name"] for p in listed["passengers"]] == ["Zed", "Amy", "Moe"]
+    assert listed["additional_travellers_count"] == 4
+
+
+def test_org_enquiry_accepts_exactly_100_travellers(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+    response = client.post(
+        URL, json=_org_payload(additional_travellers_count=99), headers=headers
+    )
+    assert response.status_code == 201
+    assert response.json()["adults_count"] == 100
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"passengers": None},
+        {"passengers": []},
+        {"adults_count": 2},
+        {"kids_count": 1},
+        {"additional_travellers_count": 100},
+        {"additional_travellers_count": 101},
+        {"additional_travellers_count": -1},
+        {"passengers": [_person(mobile=f"90000{i:05d}") for i in range(51)]},
+        {"passengers": [_person(mobile="123")]},
+        {"passengers": [_person(spoken_languages=[])]},
+        {"passengers": [_person(communication_mediums=[])]},
+        {"passengers": [_person(gender="unknown")]},
+        {"passengers": [_person(name="   ")]},
+        {"passengers": [_person(extra="x")]},
+    ],
+)
+def test_org_enquiry_validation_failures(
+    client: TestClient,
+    make_user: MakeUser,
+    login_headers: Callable[..., dict[str, str]],
+    overrides: dict[str, Any],
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+
+    response = client.post(URL, json=_org_payload(**overrides), headers=headers)
+
+    assert response.status_code == 422
+
+
+def test_org_enquiry_without_passengers_key_is_422(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+    data = _org_payload()
+    del data["passengers"]
+    assert client.post(URL, json=data, headers=headers).status_code == 422
+
+
+def test_org_total_over_100_is_422(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+    people = [_person(mobile=f"90000{i:05d}") for i in range(2)]
+    response = client.post(
+        URL,
+        json=_org_payload(passengers=people, additional_travellers_count=99),
+        headers=headers,
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"passengers": [_person()]}, {"additional_travellers_count": 2}],
+)
+def test_personal_enquiry_rejects_passengers_and_additional(
+    client: TestClient,
+    make_user: MakeUser,
+    login_headers: Callable[..., dict[str, str]],
+    overrides: dict[str, Any],
+) -> None:
+    make_user(mobile="9876543210")
+    headers = login_headers("9876543210")
+
+    response = client.post(URL, json=_payload(**overrides), headers=headers)
+
+    assert response.status_code == 422
+
+
+def test_personal_enquiry_requires_adults_count(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    make_user(mobile="9876543210")
+    headers = login_headers("9876543210")
+    data = _payload()
+    del data["adults_count"]
+    assert client.post(URL, json=data, headers=headers).status_code == 422
+
+
+def test_personal_enquiry_has_empty_passengers(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    make_user(mobile="9876543210")
+    headers = login_headers("9876543210")
+
+    created = client.post(URL, json=_payload(), headers=headers).json()
+    detail = client.get(f"{URL}/{created['id']}", headers=headers).json()
+
+    assert created["passengers"] == []
+    assert created["additional_travellers_count"] == 0
+    assert detail["passengers"] == []
+    assert detail["adults_count"] == 2
+    assert detail["kids_count"] == 1
+
+
+def test_org_passengers_visible_to_owner_only(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+    make_user(mobile="9123456780")
+    other = login_headers("9123456780")
+    created = client.post(URL, json=_org_payload(), headers=headers).json()
+
+    assert client.get(f"{URL}/{created['id']}", headers=headers).json()["passengers"]
+    assert client.get(f"{URL}/{created['id']}", headers=other).status_code == 404
+    assert client.get(URL, headers=other).json()["items"] == []
+
+
+def test_org_enquiry_numbers_stay_per_user(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    headers = _org_headers(make_user, login_headers)
+    first = client.post(URL, json=_org_payload(), headers=headers).json()
+    second = client.post(URL, json=_org_payload(), headers=headers).json()
+    assert (first["enquiry_no"], second["enquiry_no"]) == (1, 2)

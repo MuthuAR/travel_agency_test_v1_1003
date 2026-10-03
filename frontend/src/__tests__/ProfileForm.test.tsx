@@ -150,7 +150,7 @@ describe('ProfileForm', () => {
 
     expect(await screen.findByTestId('account-type-value')).toHaveTextContent('Organization');
     expect(screen.getByLabelText('Organization name')).toBeDisabled();
-    expect(screen.getByLabelText('Contact person name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Staff name')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Edit profile' }));
     const orgInput = screen.getByLabelText('Organization name');

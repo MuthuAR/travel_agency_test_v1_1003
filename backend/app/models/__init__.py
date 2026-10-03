@@ -2,6 +2,7 @@
 from app.models.base import Base, TimestampMixin
 from app.models.customer_profile import AccountType, CommunicationMedium, CustomerProfile
 from app.models.enquiry import Enquiry, EnquiryStatus
+from app.models.enquiry_passenger import EnquiryPassenger
 from app.models.refresh_token import RefreshToken
 from app.models.user import User, UserRole
 
@@ -16,4 +17,5 @@ __all__ = [
     "AccountType",
     "Enquiry",
     "EnquiryStatus",
+    "EnquiryPassenger",
 ]

@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
+import pytest
 from fastapi import Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -35,6 +36,15 @@ def register_payload(**overrides: Any) -> dict[str, Any]:
         "communication_mediums": ["whatsapp"],
         "address": "12 Main Street, Chennai",
     }
+    payload.update(overrides)
+    return payload
+
+
+def org_register_payload(**overrides: Any) -> dict[str, Any]:
+    """Organization sign-up: no gender, languages or communication preference."""
+    payload = register_payload(account_type="organization", organization_name="Acme Travels")
+    for key in ("gender", "spoken_languages", "communication_mediums"):
+        payload.pop(key)
     payload.update(overrides)
     return payload
 
@@ -415,27 +425,64 @@ def test_register_personal_blank_organization_name_becomes_null(client: TestClie
 def test_register_organization(client: TestClient, db: Session) -> None:
     response = client.post(
         f"{API}/register",
-        json=register_payload(account_type="organization", organization_name="  Acme   Travels  "),
+        json=org_register_payload(organization_name="  Acme   Travels  "),
     )
     assert response.status_code == 201
     profile = response.json()["profile"]
     assert profile["account_type"] == "organization"
     assert profile["organization_name"] == "Acme Travels"
     assert profile["name"] == "Jane Doe"
+    assert profile["gender"] is None
+    assert profile["spoken_languages"] == []
+    assert profile["communication_mediums"] == []
     stored = db.execute(select(CustomerProfile)).scalar_one()
     assert stored.organization_name == "Acme Travels"
+    assert stored.gender is None
+    assert list(stored.spoken_languages) == []
+    assert list(stored.communication_mediums) == []
+
+
+def test_register_organization_accepts_empty_or_null_removed_fields(client: TestClient) -> None:
+    response = client.post(
+        f"{API}/register",
+        json=org_register_payload(gender=None, spoken_languages=[], communication_mediums=[]),
+    )
+    assert response.status_code == 201
+    assert response.json()["profile"]["gender"] is None
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"gender": "female"},
+        {"spoken_languages": ["English"]},
+        {"communication_mediums": ["sms"]},
+    ],
+)
+def test_register_organization_rejects_removed_fields(
+    client: TestClient, extra: dict[str, Any]
+) -> None:
+    response = client.post(f"{API}/register", json=org_register_payload(**extra))
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("missing", ["gender", "spoken_languages", "communication_mediums"])
+def test_register_personal_still_requires_person_fields(
+    client: TestClient, missing: str
+) -> None:
+    payload = register_payload()
+    payload.pop(missing)
+    assert client.post(f"{API}/register", json=payload).status_code == 422
+    payload[missing] = None
+    assert client.post(f"{API}/register", json=payload).status_code == 422
 
 
 def test_register_organization_requires_name(client: TestClient) -> None:
-    missing = client.post(f"{API}/register", json=register_payload(account_type="organization"))
-    blank = client.post(
-        f"{API}/register",
-        json=register_payload(account_type="organization", organization_name="  "),
+    missing = client.post(
+        f"{API}/register", json=org_register_payload(organization_name=None)
     )
-    short = client.post(
-        f"{API}/register",
-        json=register_payload(account_type="organization", organization_name="A"),
-    )
+    blank = client.post(f"{API}/register", json=org_register_payload(organization_name="  "))
+    short = client.post(f"{API}/register", json=org_register_payload(organization_name="A"))
     assert missing.status_code == 422
     assert blank.status_code == 422
     assert short.status_code == 422

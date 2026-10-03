@@ -12,6 +12,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   backend:
@@ -29,6 +31,14 @@ services:
         condition: service_healthy
     expose:
       - "8000"
+    # Hardening: no extra privileges, no Linux capabilities, read-only filesystem.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     restart: unless-stopped
 
   frontend:
@@ -43,8 +53,9 @@ services:
     # nginx in this container proxies /api/* to the backend, so one router
     # covers the whole app and the backend needs no published port.
     # Change FRONTEND_PORT if 8083 is already taken by another app on the VPS.
+    # The container itself listens on the unprivileged port 8080 (runs as non-root).
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8083}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-8083}:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.travelbooking.rule=Host(`${APP_DOMAIN}`)"
@@ -52,6 +63,13 @@ services:
       - "traefik.http.routers.travelbooking.tls=true"
       - "traefik.http.routers.travelbooking.tls.certresolver=letsencrypt"
       - "traefik.http.services.travelbooking.loadbalancer.server.url=http://127.0.0.1:${FRONTEND_PORT:-8083}"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     restart: unless-stopped
 
 volumes:

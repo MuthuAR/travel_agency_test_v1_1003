@@ -13,7 +13,13 @@ from pydantic import (
 
 from app.auth.session_policy import idle_timeout_minutes_for_role
 from app.models.user import UserRole
-from app.schemas.profile import AccountTypeValue, ContactMixin, ProfileBase, ProfileOut
+from app.schemas.profile import (
+    AccountTypeValue,
+    ContactMixin,
+    ProfileBase,
+    ProfileOut,
+    check_person_fields,
+)
 from app.utils.validators import validate_password_strength
 
 
@@ -29,6 +35,14 @@ class RegisterRequest(ProfileBase, ContactMixin):
             raise ValueError("organization_name is required for organization accounts")
         if self.account_type == "personal" and self.organization_name is not None:
             raise ValueError("organization_name is only allowed for organization accounts")
+        error = check_person_fields(
+            self.account_type == "organization",
+            self.gender,
+            self.spoken_languages,
+            self.communication_mediums,
+        )
+        if error is not None:
+            raise ValueError(error)
         return self
 
     @field_validator("password")

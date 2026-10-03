@@ -32,14 +32,27 @@ export interface CustomerProfile {
   organization_name: string | null;
   /** Full name for personal accounts; contact person for organisation accounts. */
   name: string;
-  gender: Gender;
+  /** Null for organisation accounts. */
+  gender: Gender | null;
+  /** Empty for organisation accounts. */
   spoken_languages: string[];
+  /** Empty for organisation accounts. */
   communication_mediums: CommunicationMedium[];
   address: string;
   mobile: string;
   email: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface EnquiryPassenger {
+  id: number;
+  position: number;
+  name: string;
+  mobile: string;
+  gender: Gender;
+  spoken_languages: string[];
+  communication_mediums: CommunicationMedium[];
 }
 
 export interface Enquiry {
@@ -57,6 +70,9 @@ export interface Enquiry {
   vehicle_preference: string;
   others: string | null;
   status: EnquiryStatus;
+  /** Employees listed on an organisation enquiry; empty/absent for personal enquiries. */
+  passengers?: EnquiryPassenger[];
+  additional_travellers_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -73,16 +89,28 @@ export interface Paginated<T> {
   page_size: number;
 }
 
+export interface PassengerPayload {
+  name: string;
+  mobile: string;
+  gender: Gender;
+  spoken_languages: string[];
+  communication_mediums: CommunicationMedium[];
+}
+
 export interface EnquiryCreatePayload {
   start_date: string;
   end_date: string;
   pickup_location: string;
   drop_location: string;
   travel_routes: string;
-  adults_count: number;
-  kids_count: number;
+  /** Omitted for organisation enquiries (the server derives the total). */
+  adults_count?: number;
+  kids_count?: number;
   vehicle_preference: string;
   others?: string;
+  /** Organisation enquiries only. */
+  passengers?: PassengerPayload[];
+  additional_travellers_count?: number;
 }
 
 export interface AdminEnquiryFilters {
@@ -114,9 +142,10 @@ export interface RegisterPayload {
   email?: string;
   password: string;
   name: string;
-  gender: Gender;
-  spoken_languages: string[];
-  communication_mediums: CommunicationMedium[];
+  /** Omitted for organisation accounts. */
+  gender?: Gender;
+  spoken_languages?: string[];
+  communication_mediums?: CommunicationMedium[];
   address: string;
 }
 
@@ -125,9 +154,10 @@ export interface ProfileUpdatePayload {
   /** Only for organisation accounts; account_type itself can never be changed. */
   organization_name?: string;
   name: string;
-  gender: Gender;
-  spoken_languages: string[];
-  communication_mediums: CommunicationMedium[];
+  /** Omitted for organisation accounts. */
+  gender?: Gender;
+  spoken_languages?: string[];
+  communication_mediums?: CommunicationMedium[];
   address: string;
   mobile: string;
   email: string | null;

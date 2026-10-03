@@ -3,11 +3,11 @@
 import logging
 from datetime import date
 
-from sqlalchemy import ColumnElement, func, or_, select
-from sqlalchemy.orm import Session, contains_eager
+from sqlalchemy import ColumnElement, exists, func, or_, select
+from sqlalchemy.orm import Session, contains_eager, selectinload
 
 from app.exceptions import NotFoundError
-from app.models import AccountType
+from app.models import AccountType, EnquiryPassenger
 from app.models.customer_profile import CustomerProfile
 from app.models.enquiry import Enquiry, EnquiryStatus
 from app.models.user import User
@@ -88,6 +88,13 @@ def list_enquiries(
                 CustomerProfile.organization_name.ilike(pattern, escape=_LIKE_ESCAPE),
                 User.mobile.ilike(pattern, escape=_LIKE_ESCAPE),
                 User.email.ilike(pattern, escape=_LIKE_ESCAPE),
+                exists().where(
+                    EnquiryPassenger.enquiry_id == Enquiry.id,
+                    or_(
+                        EnquiryPassenger.name.ilike(pattern, escape=_LIKE_ESCAPE),
+                        EnquiryPassenger.mobile.ilike(pattern, escape=_LIKE_ESCAPE),
+                    ),
+                ),
             )
         )
 
@@ -105,7 +112,10 @@ def list_enquiries(
         .join(ranked, ranked.c.id == Enquiry.id)
         .join(User, Enquiry.user_id == User.id)
         .outerjoin(CustomerProfile, CustomerProfile.user_id == User.id)
-        .options(contains_eager(Enquiry.user).contains_eager(User.profile))
+        .options(
+            contains_eager(Enquiry.user).contains_eager(User.profile),
+            selectinload(Enquiry.passengers),
+        )
         .where(*conditions)
         .order_by(Enquiry.created_at.desc(), Enquiry.id.desc())
         .offset((page - 1) * page_size)
@@ -121,7 +131,10 @@ def get_enquiry(db: Session, enquiry_id: int) -> AdminEnquiryOut:
         select(Enquiry)
         .join(User, Enquiry.user_id == User.id)
         .outerjoin(CustomerProfile, CustomerProfile.user_id == User.id)
-        .options(contains_eager(Enquiry.user).contains_eager(User.profile))
+        .options(
+            contains_eager(Enquiry.user).contains_eager(User.profile),
+            selectinload(Enquiry.passengers),
+        )
         .where(Enquiry.id == enquiry_id)
     )
     enquiry = db.scalars(stmt).first()

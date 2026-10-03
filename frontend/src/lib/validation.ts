@@ -125,15 +125,20 @@ export function splitLanguages(all: string[]): { languages: string[]; otherLangu
 }
 
 /** Errors are keyed by the backend field names. */
-export function validateProfileFields(values: ProfileFieldValues): FieldErrors {
+export function validateProfileFields(
+  values: ProfileFieldValues,
+  accountType: AccountType = 'personal',
+): FieldErrors {
   const errors: FieldErrors = {};
   if (!values.name.trim()) errors.name = 'Name is required';
-  if (!values.gender) errors.gender = 'Select a gender';
-  if (buildLanguages(values.languages, values.otherLanguages).length === 0) {
-    errors.spoken_languages = 'Select or enter at least one language';
-  }
-  if (values.communicationMediums.length === 0) {
-    errors.communication_mediums = 'Select at least one communication medium';
+  if (accountType === 'personal') {
+    if (!values.gender) errors.gender = 'Select a gender';
+    if (buildLanguages(values.languages, values.otherLanguages).length === 0) {
+      errors.spoken_languages = 'Select or enter at least one language';
+    }
+    if (values.communicationMediums.length === 0) {
+      errors.communication_mediums = 'Select at least one communication medium';
+    }
   }
   if (!values.address.trim()) errors.address = 'Address is required';
   return errors;

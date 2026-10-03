@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import {
   Alert,
   AlertIcon,
+  Box,
+  Button,
   FormControl,
   FormErrorMessage,
   FormLabel,
   Select,
   SimpleGrid,
+  Text,
   Textarea,
   VStack,
   chakra,
@@ -17,21 +20,55 @@ import { GradientButton } from '../ui/GradientButton';
 import { enquiryService } from '../../services/enquiryService';
 import { getErrorMessage } from '../../lib/errors';
 import { getFieldErrors } from '../../lib/fieldErrors';
+import { buildLanguages, normalizeMobile } from '../../lib/validation';
+import { PassengerFields } from './PassengerFields';
 import {
+  EMPTY_PASSENGER_VALUES,
   INITIAL_ENQUIRY_VALUES,
+  MAX_EMPLOYEES,
   VEHICLE_OPTIONS,
+  hasOrganizationErrors,
+  parseAdditional,
   todayIso,
+  totalTravellers,
   validateEnquiry,
+  validateOrganizationEnquiry,
 } from './enquiryValidation';
-import type { EnquiryFormErrors, EnquiryFormValues } from './enquiryValidation';
-import type { Enquiry, EnquiryCreatePayload } from '../../types';
+import type {
+  EnquiryFormErrors,
+  EnquiryFormValues,
+  OrganizationEnquiryErrors,
+  PassengerFormValues,
+} from './enquiryValidation';
+import type {
+  AccountType,
+  Enquiry,
+  EnquiryCreatePayload,
+  PassengerPayload,
+} from '../../types';
 
 interface EnquiryFormProps {
   onCreated: (enquiry: Enquiry) => void;
+  /** Organisation accounts list employees instead of adults/kids counts. */
+  accountType?: AccountType;
 }
 
-export function EnquiryForm({ onCreated }: EnquiryFormProps) {
+interface PassengerEntry {
+  key: number;
+  values: PassengerFormValues;
+}
+
+const EMPTY_ORGANIZATION_ERRORS: OrganizationEnquiryErrors = { base: {}, passengers: [] };
+
+export function EnquiryForm({ onCreated, accountType = 'personal' }: EnquiryFormProps) {
+  const isOrganization = accountType === 'organization';
+  const nextKey = useRef<number>(1);
   const [values, setValues] = useState<EnquiryFormValues>(INITIAL_ENQUIRY_VALUES);
+  const [passengers, setPassengers] = useState<PassengerEntry[]>([
+    { key: 0, values: EMPTY_PASSENGER_VALUES },
+  ]);
+  const [additional, setAdditional] = useState<string>('0');
+  const [orgErrors, setOrgErrors] = useState<OrganizationEnquiryErrors>(EMPTY_ORGANIZATION_ERRORS);
   const [errors, setErrors] = useState<EnquiryFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -44,9 +81,123 @@ export function EnquiryForm({ onCreated }: EnquiryFormProps) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     };
 
+  const updatePassenger = (key: number, patch: Partial<PassengerFormValues>): void => {
+    setPassengers((prev) =>
+      prev.map((entry) =>
+        entry.key === key ? { ...entry, values: { ...entry.values, ...patch } } : entry,
+      ),
+    );
+    const index = passengers.findIndex((entry) => entry.key === key);
+    if (index < 0) return;
+    setOrgErrors((prev) => {
+      const existing = prev.passengers[index];
+      if (!existing) return prev;
+      const current = { ...existing };
+      if ('name' in patch) delete current.name;
+      if ('mobile' in patch) delete current.mobile;
+      if ('gender' in patch) delete current.gender;
+      if ('languages' in patch || 'otherLanguages' in patch) delete current.spoken_languages;
+      if ('communicationMediums' in patch) delete current.communication_mediums;
+      const nextPassengers = prev.passengers.slice();
+      nextPassengers[index] = current;
+      return { ...prev, passengers: nextPassengers };
+    });
+  };
+
+  const addPassenger = (): void => {
+    if (passengers.length >= MAX_EMPLOYEES) return;
+    const key = nextKey.current;
+    nextKey.current += 1;
+    setPassengers((prev) => [...prev, { key, values: EMPTY_PASSENGER_VALUES }]);
+    setOrgErrors((prev) => ({ ...prev, total: undefined }));
+  };
+
+  const removePassenger = (key: number): void => {
+    const index = passengers.findIndex((entry) => entry.key === key);
+    if (index <= 0) return;
+    setPassengers((prev) => prev.filter((entry) => entry.key !== key));
+    setOrgErrors((prev) => ({
+      ...prev,
+      total: undefined,
+      passengers: prev.passengers.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleOrganizationSubmit = async (): Promise<void> => {
+    const found = validateOrganizationEnquiry(
+      values,
+      passengers.map((entry) => entry.values),
+      additional,
+    );
+    setErrors(found.base);
+    setOrgErrors(found);
+    if (hasOrganizationErrors(found)) return;
+
+    const passengerPayload: PassengerPayload[] = [];
+    for (const entry of passengers) {
+      const gender = entry.values.gender;
+      // validatePassenger guarantees a gender is selected.
+      if (gender === '') return;
+      passengerPayload.push({
+        name: entry.values.name.trim(),
+        mobile: normalizeMobile(entry.values.mobile),
+        gender,
+        spoken_languages: buildLanguages(entry.values.languages, entry.values.otherLanguages),
+        communication_mediums: entry.values.communicationMediums,
+      });
+    }
+
+    const payload: EnquiryCreatePayload = {
+      start_date: values.start_date,
+      end_date: values.end_date,
+      pickup_location: values.pickup_location.trim(),
+      drop_location: values.drop_location.trim(),
+      travel_routes: values.travel_routes.trim(),
+      vehicle_preference: values.vehicle_preference,
+      passengers: passengerPayload,
+      additional_travellers_count: parseAdditional(additional),
+    };
+    const others = values.others.trim();
+    if (others) payload.others = others;
+
+    setSubmitting(true);
+    try {
+      const created = await enquiryService.create(payload);
+      onCreated(created);
+    } catch (err: unknown) {
+      const fieldErrors = getFieldErrors(err);
+      const mapped: EnquiryFormErrors = {};
+      (Object.keys(values) as Array<keyof EnquiryFormValues>).forEach((key) => {
+        if (key === 'adults_count' || key === 'kids_count') return;
+        const message = fieldErrors[key];
+        if (message) mapped[key] = message;
+      });
+      const additionalError = fieldErrors.additional_travellers_count;
+      const totalError = fieldErrors.passengers ?? fieldErrors.adults_count;
+      if (Object.keys(mapped).length > 0 || additionalError || totalError) {
+        setErrors(mapped);
+        setOrgErrors({
+          base: mapped,
+          passengers: [],
+          additional_travellers_count: additionalError,
+          total: totalError,
+        });
+      } else {
+        setFormError(getErrorMessage(err));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setFormError(null);
+
+    if (isOrganization) {
+      await handleOrganizationSubmit();
+      return;
+    }
 
     const found = validateEnquiry(values);
     setErrors(found);
@@ -87,6 +238,7 @@ export function EnquiryForm({ onCreated }: EnquiryFormProps) {
   };
 
   const today = todayIso();
+  const total = totalTravellers(passengers.length, additional);
 
   return (
     <chakra.form
@@ -155,26 +307,87 @@ export function EnquiryForm({ onCreated }: EnquiryFormProps) {
           <FormErrorMessage>{errors.travel_routes}</FormErrorMessage>
         </FormControl>
 
-        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
-          <AnimatedInput
-            label="Adults"
-            type="number"
-            min={0}
-            step={1}
-            value={values.adults_count}
-            onChange={setField('adults_count')}
-            error={errors.adults_count}
-          />
-          <AnimatedInput
-            label="Kids"
-            type="number"
-            min={0}
-            step={1}
-            value={values.kids_count}
-            onChange={setField('kids_count')}
-            error={errors.kids_count}
-          />
-        </SimpleGrid>
+        {isOrganization ? (
+          <chakra.section aria-label="Travellers">
+            <Text fontSize="lg" fontWeight="semibold" mb={3}>
+              Travellers
+            </Text>
+            <VStack spacing={4} align="stretch">
+              {passengers.map((entry, index) => (
+                <PassengerFields
+                  key={entry.key}
+                  index={index}
+                  values={entry.values}
+                  errors={orgErrors.passengers[index] ?? {}}
+                  onChange={(patch) => updatePassenger(entry.key, patch)}
+                  onRemove={index > 0 ? () => removePassenger(entry.key) : undefined}
+                  disabled={submitting}
+                />
+              ))}
+              <Box>
+                <Button
+                  type="button"
+                  variant="outline"
+                  rounded="full"
+                  onClick={addPassenger}
+                  isDisabled={submitting || passengers.length >= MAX_EMPLOYEES}
+                >
+                  Add another employee
+                </Button>
+              </Box>
+              <Box>
+                <AnimatedInput
+                  label="Additional travellers (count only)"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={additional}
+                  onChange={(e) => {
+                    setAdditional(e.target.value);
+                    setOrgErrors((prev) => ({
+                      ...prev,
+                      additional_travellers_count: undefined,
+                      total: undefined,
+                    }));
+                  }}
+                  error={orgErrors.additional_travellers_count}
+                />
+                <Text fontSize="sm" color="gray.600" mt={1}>
+                  Travellers whose details you are not entering above. Do not include the employees
+                  listed above.
+                </Text>
+              </Box>
+              <Text fontWeight="semibold" aria-live="polite">{`Total travellers: ${total}`}</Text>
+              {orgErrors.total && (
+                <Text role="alert" color="red.500" fontSize="sm">
+                  {orgErrors.total}
+                </Text>
+              )}
+            </VStack>
+          </chakra.section>
+        ) : (
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+            <AnimatedInput
+              label="Adults"
+              type="number"
+              min={0}
+              step={1}
+              value={values.adults_count}
+              onChange={setField('adults_count')}
+              error={errors.adults_count}
+            />
+            <AnimatedInput
+              label="Kids"
+              type="number"
+              min={0}
+              step={1}
+              value={values.kids_count}
+              onChange={setField('kids_count')}
+              error={errors.kids_count}
+            />
+          </SimpleGrid>
+        )}
 
         <FormControl isInvalid={Boolean(errors.vehicle_preference)}>
           <FormLabel fontSize="sm">Vehicle preference</FormLabel>

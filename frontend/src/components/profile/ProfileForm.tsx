@@ -41,7 +41,7 @@ function toFieldValues(profile: CustomerProfile): ProfileFieldValues {
   const { languages, otherLanguages } = splitLanguages(profile.spoken_languages);
   return {
     name: profile.name,
-    gender: profile.gender,
+    gender: profile.gender ?? '',
     languages,
     otherLanguages,
     communicationMediums: profile.communication_mediums,
@@ -105,7 +105,10 @@ export function ProfileForm() {
     setSaved(false);
 
     const isOrganization = profile?.account_type === 'organization';
-    const found: FieldErrors = validateProfileFields(values);
+    const found: FieldErrors = validateProfileFields(
+      values,
+      isOrganization ? 'organization' : 'personal',
+    );
     if (isOrganization) {
       const organizationError = validateOrganizationName(organizationName);
       if (organizationError) found.organization_name = organizationError;
@@ -116,16 +119,20 @@ export function ProfileForm() {
     if (emailError) found.email = emailError;
     setErrors(found);
     if (Object.keys(found).length > 0) return;
-    if (values.gender === '' || values.communicationMediums.length === 0) return;
+    if (!isOrganization && (values.gender === '' || values.communicationMediums.length === 0)) return;
 
     setSaving(true);
     try {
       const updated = await profileService.updateProfile({
         ...(isOrganization ? { organization_name: organizationName.trim() } : {}),
         name: values.name.trim(),
-        gender: values.gender,
-        spoken_languages: buildLanguages(values.languages, values.otherLanguages),
-        communication_mediums: values.communicationMediums,
+        ...(!isOrganization && values.gender !== ''
+          ? {
+              gender: values.gender,
+              spoken_languages: buildLanguages(values.languages, values.otherLanguages),
+              communication_mediums: values.communicationMediums,
+            }
+          : {}),
         address: values.address.trim(),
         mobile: normalizeMobile(contact.mobile),
         email: contact.email.trim() || null,
@@ -215,7 +222,8 @@ export function ProfileForm() {
           errors={errors}
           onChange={handleChange}
           disabled={!isEditing}
-          nameLabel={isOrganizationAccount ? 'Contact person name' : 'Full name'}
+          nameLabel={isOrganizationAccount ? 'Staff name' : 'Full name'}
+          hidePersonalDetails={isOrganizationAccount}
         />
         {isEditing ? (
           <HStack spacing={3}>

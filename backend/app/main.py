@@ -18,12 +18,15 @@ from app.routers import admin, auth, enquiries, profile
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
 
+# Interactive API docs are only enabled outside production.
+_docs_enabled = settings.ENVIRONMENT != "production"
+
 app = FastAPI(
     title="Travel Booking Website",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 app.state.limiter = limiter
 

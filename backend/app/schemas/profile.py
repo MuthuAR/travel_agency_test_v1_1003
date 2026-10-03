@@ -48,9 +48,13 @@ class ProfileBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
-    gender: Gender
-    spoken_languages: list[Language] = Field(min_length=1, max_length=10)
-    communication_mediums: list[CommunicationMediumValue] = Field(min_length=1, max_length=3)
+    # Required for personal accounts, forbidden for organization accounts; the per-type
+    # rules live in RegisterRequest (sign-up) and profile_service (PUT /profile).
+    gender: Gender | None = None
+    spoken_languages: list[Language] | None = Field(default=None, max_length=10)
+    communication_mediums: list[CommunicationMediumValue] | None = Field(
+        default=None, max_length=3
+    )
     address: Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=500)]
     organization_name: str | None = None
 
@@ -62,10 +66,35 @@ class ProfileBase(BaseModel):
     @field_validator("communication_mediums")
     @classmethod
     def _dedupe_mediums(
-        cls, value: list[CommunicationMediumValue]
-    ) -> list[CommunicationMediumValue]:
+        cls, value: list[CommunicationMediumValue] | None
+    ) -> list[CommunicationMediumValue] | None:
         """Drop duplicates while preserving the order given."""
+        if value is None:
+            return None
         return list(dict.fromkeys(value))
+
+
+def check_person_fields(
+    is_organization: bool,
+    gender: str | None,
+    spoken_languages: list[str] | None,
+    communication_mediums: list[str] | None,
+) -> str | None:
+    """Return an error message if gender/languages/mediums break the per-type rules."""
+    if is_organization:
+        if gender is not None or spoken_languages or communication_mediums:
+            return (
+                "gender, spoken_languages and communication_mediums "
+                "are not allowed for organization accounts"
+            )
+        return None
+    if gender is None:
+        return "gender is required for personal accounts"
+    if not spoken_languages:
+        return "spoken_languages must have at least 1 item for personal accounts"
+    if not communication_mediums:
+        return "communication_mediums must have 1 to 3 items for personal accounts"
+    return None
 
 
 class ContactMixin(BaseModel):
@@ -97,7 +126,7 @@ class ProfileOut(BaseModel):
     id: int
     user_id: int
     name: str
-    gender: str
+    gender: str | None
     spoken_languages: list[str]
     communication_mediums: list[str]
     address: str

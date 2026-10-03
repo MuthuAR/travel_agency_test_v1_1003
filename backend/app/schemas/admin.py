@@ -13,7 +13,7 @@ class CustomerOut(BaseModel):
     id: int
     user_id: int
     name: str
-    gender: str
+    gender: str | None
     spoken_languages: list[str]
     communication_mediums: list[str]
     address: str

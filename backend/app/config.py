@@ -37,6 +37,14 @@ class Settings(BaseSettings):
             raise ValueError("must be >= 1")
         return value
 
+    @field_validator("ALGORITHM")
+    @classmethod
+    def validate_algorithm(cls, value: str) -> str:
+        """Only HMAC JWT algorithms are allowed (never `none` or an asymmetric one by mistake)."""
+        if value not in {"HS256", "HS384", "HS512"}:
+            raise ValueError("ALGORITHM must be one of HS256, HS384, HS512")
+        return value
+
     @field_validator("DATABASE_URL")
     @classmethod
     def normalize_database_url(cls, value: str) -> str:

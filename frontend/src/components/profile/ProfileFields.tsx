@@ -31,6 +31,8 @@ interface ProfileFieldsProps {
   disabled?: boolean;
   /** Label of the person-name field; "Contact person name" for organisation accounts. */
   nameLabel?: string;
+  /** Organisation accounts hide gender, spoken languages and communication preference. */
+  hidePersonalDetails?: boolean;
 }
 
 /** Name, gender, languages, communication medium and address, shared by register and profile. */
@@ -40,6 +42,7 @@ export function ProfileFields({
   onChange,
   disabled = false,
   nameLabel = 'Full name',
+  hidePersonalDetails = false,
 }: ProfileFieldsProps) {
   return (
     <VStack spacing={4} align="stretch">
@@ -52,6 +55,8 @@ export function ProfileFields({
         error={errors.name}
       />
 
+      {!hidePersonalDetails && (
+        <>
       <FormControl isInvalid={Boolean(errors.gender)} isDisabled={disabled}>
         <FormLabel fontSize="sm" fontWeight="medium" mb={1}>
           Gender
@@ -129,6 +134,8 @@ export function ProfileFields({
           </Text>
         )}
       </chakra.fieldset>
+        </>
+      )}
 
       <FormControl isInvalid={Boolean(errors.address)} isDisabled={disabled}>
         <FormLabel fontSize="sm" fontWeight="medium" mb={1}>

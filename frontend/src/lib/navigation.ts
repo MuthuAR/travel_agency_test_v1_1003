@@ -12,7 +12,9 @@ function isRedirectState(state: unknown): state is RedirectState {
 export function getRequestedPath(state: unknown): string | undefined {
   if (!isRedirectState(state)) return undefined;
   const from = state.from;
-  if (typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')) return from;
+  // Same-site absolute path only. Browsers treat `\` like `/`, so `/\evil.com` and `//evil.com`
+  // would be external redirects; control characters are rejected as well.
+  if (typeof from === 'string' && /^\/(?![/\\])[^\\\u0000-\u001f]*$/.test(from)) return from;
   return undefined;
 }
 

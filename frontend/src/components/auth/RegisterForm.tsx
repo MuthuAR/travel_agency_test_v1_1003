@@ -73,7 +73,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     event.preventDefault();
     setFormError(null);
 
-    const found: FieldErrors = validateProfileFields(profile);
+    const found: FieldErrors = validateProfileFields(profile, accountType);
     if (accountType === 'organization') {
       const organizationError = validateOrganizationName(organizationName);
       if (organizationError) found.organization_name = organizationError;
@@ -90,7 +90,12 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
 
     const trimmedEmail = email.trim();
     // validateProfileFields guarantees gender and medium are set.
-    if (profile.gender === '' || profile.communicationMediums.length === 0) return;
+    if (
+      accountType === 'personal' &&
+      (profile.gender === '' || profile.communicationMediums.length === 0)
+    ) {
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -101,9 +106,13 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
         ...(trimmedEmail ? { email: trimmedEmail } : {}),
         password,
         name: profile.name.trim(),
-        gender: profile.gender,
-        spoken_languages: buildLanguages(profile.languages, profile.otherLanguages),
-        communication_mediums: profile.communicationMediums,
+        ...(accountType === 'personal' && profile.gender !== ''
+          ? {
+              gender: profile.gender,
+              spoken_languages: buildLanguages(profile.languages, profile.otherLanguages),
+              communication_mediums: profile.communicationMediums,
+            }
+          : {}),
         address: profile.address.trim(),
       });
       onSuccess(user);
@@ -172,7 +181,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
           values={profile}
           errors={errors}
           onChange={handleProfileChange}
-          nameLabel={accountType === 'organization' ? 'Contact person name' : 'Full name'}
+          nameLabel={accountType === 'organization' ? 'Staff name' : 'Full name'}
+          hidePersonalDetails={accountType === 'organization'}
         />
         <AnimatedInput
           label="Password"

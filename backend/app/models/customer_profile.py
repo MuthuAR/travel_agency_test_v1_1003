@@ -57,7 +57,8 @@ class CustomerProfile(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    gender: Mapped[str] = mapped_column(String(20), nullable=False)
+    # NULL for organization accounts (they do not provide gender).
+    gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # Stored as a native PostgreSQL ARRAY(VARCHAR(50)) of language names.
     spoken_languages: Mapped[list[str]] = mapped_column(ARRAY(String(50)), nullable=False)
     # Native PostgreSQL ARRAY(VARCHAR(20)); values are CommunicationMedium values.

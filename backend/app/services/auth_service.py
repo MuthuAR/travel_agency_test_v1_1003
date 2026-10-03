@@ -52,8 +52,8 @@ def register_user(db: Session, data: RegisterRequest) -> RegisterResponse:
     profile = CustomerProfile(
         name=data.name,
         gender=data.gender,
-        spoken_languages=list(data.spoken_languages),
-        communication_mediums=list(data.communication_mediums),
+        spoken_languages=list(data.spoken_languages or []),
+        communication_mediums=list(data.communication_mediums or []),
         address=data.address,
         account_type=AccountType(data.account_type),
         organization_name=data.organization_name,

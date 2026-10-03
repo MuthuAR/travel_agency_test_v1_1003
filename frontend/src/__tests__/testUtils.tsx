@@ -3,7 +3,7 @@ import { ChakraProvider } from '@chakra-ui/react';
 import { render } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { AdminEnquiry, CustomerProfile, Enquiry } from '../types';
+import type { AdminEnquiry, CustomerProfile, Enquiry, EnquiryPassenger } from '../types';
 
 /** Render with Chakra and a router (no auth context). Auth-aware tests use authTestUtils. */
 export function renderWithProviders(ui: ReactElement, route = '/'): RenderResult {
@@ -49,6 +49,19 @@ export function makeCustomer(overrides: Partial<CustomerProfile> = {}): Customer
     email: 'asha@example.com',
     created_at: '2026-09-01T10:00:00Z',
     updated_at: '2026-09-01T10:00:00Z',
+    ...overrides,
+  };
+}
+
+export function makePassenger(overrides: Partial<EnquiryPassenger> = {}): EnquiryPassenger {
+  return {
+    id: 1,
+    position: 1,
+    name: 'Ravi Kumar',
+    mobile: '9123456780',
+    gender: 'male',
+    spoken_languages: ['English', 'Tamil'],
+    communication_mediums: ['whatsapp', 'email'],
     ...overrides,
   };
 }

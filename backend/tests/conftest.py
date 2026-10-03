@@ -92,11 +92,12 @@ def make_user(db: Session) -> Callable[..., User]:
             is_active=True,
         )
         if with_profile:
+            is_org = account_type == "organization"
             user.profile = CustomerProfile(
                 name="Test User",
-                gender="other",
-                spoken_languages=["English"],
-                communication_mediums=["whatsapp"],
+                gender=None if is_org else "other",
+                spoken_languages=[] if is_org else ["English"],
+                communication_mediums=[] if is_org else ["whatsapp"],
                 address="12 Test Street, Test City",
                 account_type=AccountType(account_type),
                 organization_name=organization_name,

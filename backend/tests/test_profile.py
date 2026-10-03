@@ -25,6 +25,15 @@ def update_payload(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
+def org_update_payload(**overrides: Any) -> dict[str, Any]:
+    payload = update_payload()
+    for key in ("gender", "spoken_languages", "communication_mediums"):
+        payload.pop(key)
+    payload["organization_name"] = "Acme Travels"
+    payload.update(overrides)
+    return payload
+
+
 def test_get_profile(
     client: TestClient, make_user: Callable[..., User], login_headers: Any
 ) -> None:
@@ -208,6 +217,9 @@ def test_profile_shows_account_type(
     assert personal["organization_name"] is None
     assert org["account_type"] == "organization"
     assert org["organization_name"] == "Acme Travels"
+    assert org["gender"] is None
+    assert org["spoken_languages"] == []
+    assert org["communication_mediums"] == []
 
 
 def test_organization_can_rename(
@@ -221,7 +233,7 @@ def test_organization_can_rename(
     )
     response = client.put(
         URL,
-        json=update_payload(organization_name="  Globex   Tours "),
+        json=org_update_payload(organization_name="  Globex   Tours "),
         headers=login_headers("o@example.com"),
     )
     assert response.status_code == 200
@@ -241,7 +253,7 @@ def test_account_type_not_editable(
     )
     response = client.put(
         URL,
-        json=update_payload(account_type="personal", organization_name="Acme Travels"),
+        json=org_update_payload(account_type="personal"),
         headers=login_headers("o@example.com"),
     )
     assert response.status_code == 422
@@ -257,9 +269,11 @@ def test_organization_rejects_blank_or_missing_name(
         organization_name="Acme Travels",
     )
     headers = login_headers("o@example.com")
-    blank = client.put(URL, json=update_payload(organization_name="   "), headers=headers)
-    null = client.put(URL, json=update_payload(organization_name=None), headers=headers)
-    missing = client.put(URL, json=update_payload(), headers=headers)
+    blank = client.put(URL, json=org_update_payload(organization_name="   "), headers=headers)
+    null = client.put(URL, json=org_update_payload(organization_name=None), headers=headers)
+    missing = client.put(
+        URL, json={**org_update_payload(), "organization_name": None}, headers=headers
+    )
     assert blank.status_code == 422
     assert null.status_code == 422
     assert missing.status_code == 422
@@ -276,3 +290,40 @@ def test_personal_cannot_set_organization_name(
     blank = client.put(URL, json=update_payload(organization_name=" "), headers=headers)
     assert blank.status_code == 200
     assert blank.json()["organization_name"] is None
+
+
+def test_organization_put_rejects_person_fields(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(
+        mobile="9876543210",
+        email="o@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    headers = login_headers("o@example.com")
+    for extra in (
+        {"gender": "male"},
+        {"spoken_languages": ["English"]},
+        {"communication_mediums": ["sms"]},
+    ):
+        response = client.put(URL, json=org_update_payload(**extra), headers=headers)
+        assert response.status_code == 422
+    ok = client.put(
+        URL,
+        json=org_update_payload(gender=None, spoken_languages=[], communication_mediums=[]),
+        headers=headers,
+    )
+    assert ok.status_code == 200
+    assert ok.json()["gender"] is None
+
+
+def test_personal_put_still_requires_person_fields(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(mobile="9876543210", email="p@example.com")
+    headers = login_headers("p@example.com")
+    for key in ("gender", "spoken_languages", "communication_mediums"):
+        payload = update_payload()
+        payload.pop(key)
+        assert client.put(URL, json=payload, headers=headers).status_code == 422

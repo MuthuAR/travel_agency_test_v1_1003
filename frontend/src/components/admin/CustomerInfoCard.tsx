@@ -41,14 +41,21 @@ export function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
             <Field label="Organization name" value={customer.organization_name ?? '-'} />
           )}
           <Field
-            label={customer.account_type === 'organization' ? 'Contact person' : 'Name'}
+            label={customer.account_type === 'organization' ? 'Staff name' : 'Name'}
             value={customer.name}
           />
-          <Field label="Gender" value={customer.gender} />
+          {customer.gender && <Field label="Gender" value={customer.gender} />}
           <Field label="Mobile" value={customer.mobile} />
           <Field label="Email" value={customer.email ?? '-'} />
-          <Field label="Spoken languages" value={customer.spoken_languages.join(', ') || '-'} />
-          <Field label="Preferred communication" value={formatMediums(customer.communication_mediums) || '-'} />
+          {customer.spoken_languages.length > 0 && (
+            <Field label="Spoken languages" value={customer.spoken_languages.join(', ')} />
+          )}
+          {customer.communication_mediums.length > 0 && (
+            <Field
+              label="Preferred communication"
+              value={formatMediums(customer.communication_mediums)}
+            />
+          )}
           <Field label="Address" value={customer.address} />
         </SimpleGrid>
       ) : (

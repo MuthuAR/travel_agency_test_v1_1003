@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models import EnquiryPassenger
 from app.models.enquiry import Enquiry, EnquiryStatus
 from app.models.user import User
 
@@ -318,3 +319,93 @@ def test_admin_search_by_organization_name(
 
     assert body["total"] == 1
     assert [item["id"] for item in body["items"]] == [org_enquiry.id]
+
+
+def _insert_org_enquiry(db: Session, user: User, names: list[str]) -> Enquiry:
+    return _insert_enquiry(
+        db,
+        user,
+        adults_count=len(names) + 2,
+        additional_travellers_count=2,
+        passengers=[
+            EnquiryPassenger(
+                position=index,
+                name=name,
+                mobile=f"900000000{index}",
+                gender="male",
+                spoken_languages=["English"],
+                communication_mediums=["sms"],
+            )
+            for index, name in enumerate(names, start=1)
+        ],
+    )
+
+
+def test_admin_list_and_detail_include_passengers(
+    client: TestClient, db: Session, make_user: MakeUser, login_headers: LoginHeaders
+) -> None:
+    headers = _admin_headers(make_user, login_headers)
+    personal = make_user(mobile="9876543210")
+    org = make_user(
+        mobile="9123456780",
+        email="org@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    personal_enquiry = _insert_enquiry(db, personal)
+    org_enquiry = _insert_org_enquiry(db, org, ["Priya Nair", "Karan Shah"])
+
+    body = client.get(LIST_URL, headers=headers).json()
+    by_id = {item["id"]: item for item in body["items"]}
+    assert by_id[personal_enquiry.id]["passengers"] == []
+    assert by_id[personal_enquiry.id]["additional_travellers_count"] == 0
+    listed = by_id[org_enquiry.id]
+    assert [p["name"] for p in listed["passengers"]] == ["Priya Nair", "Karan Shah"]
+    assert listed["additional_travellers_count"] == 2
+    assert listed["customer"]["gender"] is None
+    assert listed["customer"]["spoken_languages"] == []
+
+    detail = client.get(f"{LIST_URL}/{org_enquiry.id}", headers=headers).json()
+    assert [p["position"] for p in detail["passengers"]] == [1, 2]
+    assert detail["passengers"][0]["mobile"] == "9000000001"
+
+
+def test_admin_search_matches_passenger_name_and_mobile(
+    client: TestClient, db: Session, make_user: MakeUser, login_headers: LoginHeaders
+) -> None:
+    headers = _admin_headers(make_user, login_headers)
+    personal = make_user(mobile="9876543210")
+    org = make_user(
+        mobile="9123456780",
+        email="org@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    _insert_enquiry(db, personal)
+    org_enquiry = _insert_org_enquiry(db, org, ["Priya Nair", "Karan Shah"])
+
+    by_name = client.get(LIST_URL, params={"search": "karan sh"}, headers=headers).json()
+    by_mobile = client.get(LIST_URL, params={"search": "9000000002"}, headers=headers).json()
+    nobody = client.get(LIST_URL, params={"search": "Zzyzx"}, headers=headers).json()
+
+    assert by_name["total"] == 1
+    assert [item["id"] for item in by_name["items"]] == [org_enquiry.id]
+    assert by_mobile["total"] == 1
+    assert nobody["total"] == 0
+
+
+def test_admin_per_customer_enquiry_no_unaffected_by_passengers(
+    client: TestClient, db: Session, make_user: MakeUser, login_headers: LoginHeaders
+) -> None:
+    headers = _admin_headers(make_user, login_headers)
+    org = make_user(
+        mobile="9123456780", account_type="organization", organization_name="Acme Travels"
+    )
+    first = _insert_org_enquiry(db, org, ["A One", "B Two"])
+    second = _insert_org_enquiry(db, org, ["C Three"])
+
+    body = client.get(LIST_URL, headers=headers).json()
+    numbers = {item["id"]: item["enquiry_no"] for item in body["items"]}
+    assert numbers == {first.id: 1, second.id: 2}
+    detail = client.get(f"{LIST_URL}/{second.id}", headers=headers).json()
+    assert detail["enquiry_no"] == 2

@@ -10,7 +10,7 @@ from app.exceptions import ConflictError, NotFoundError, UnprocessableError
 from app.models import AccountType
 from app.models.customer_profile import CustomerProfile
 from app.models.user import User
-from app.schemas.profile import ProfileOut, ProfileUpdate
+from app.schemas.profile import ProfileOut, ProfileUpdate, check_person_fields
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,12 @@ def update_profile(db: Session, user: User, data: ProfileUpdate) -> ProfileOut:
     if not is_organization and data.organization_name is not None:
         raise UnprocessableError("organization_name is only allowed for organization accounts")
 
+    error = check_person_fields(
+        is_organization, data.gender, data.spoken_languages, data.communication_mediums
+    )
+    if error is not None:
+        raise UnprocessableError(error)
+
     conditions = [User.mobile == data.mobile]
     if data.email is not None:
         conditions.append(User.email == data.email)
@@ -72,9 +78,11 @@ def update_profile(db: Session, user: User, data: ProfileUpdate) -> ProfileOut:
     user.mobile = data.mobile
     user.email = data.email
     profile.name = data.name
-    profile.gender = data.gender
-    profile.spoken_languages = list(data.spoken_languages)
-    profile.communication_mediums = list(data.communication_mediums)
+    profile.gender = None if is_organization else data.gender
+    profile.spoken_languages = [] if is_organization else list(data.spoken_languages or [])
+    profile.communication_mediums = (
+        [] if is_organization else list(data.communication_mediums or [])
+    )
     profile.address = data.address
     profile.organization_name = data.organization_name
     try:

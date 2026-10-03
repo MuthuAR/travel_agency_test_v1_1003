@@ -1,7 +1,21 @@
-import { Box, Divider, Flex, SimpleGrid, Text } from '@chakra-ui/react';
+import {
+  Box,
+  Divider,
+  Flex,
+  SimpleGrid,
+  Table,
+  TableContainer,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+} from '@chakra-ui/react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatusBadge } from './StatusBadge';
 import { formatDate, formatEnquiryRef, formatGlobalEnquiryRef } from '../../lib/format';
+import { formatMediums } from '../../lib/validation';
 import type { Enquiry } from '../../types';
 
 interface FieldProps {
@@ -31,6 +45,9 @@ interface EnquiryDetailProps {
 /** Renders every field as plain text. */
 export function EnquiryDetail({ enquiry, variant = 'customer' }: EnquiryDetailProps) {
   const isAdmin = variant === 'admin';
+  const passengers = enquiry.passengers ?? [];
+  const hasPassengers = passengers.length > 0;
+  const additionalTravellers = enquiry.additional_travellers_count ?? 0;
   return (
     <GlassCard whileHover={{ scale: 1.0, y: 0 }}>
       <Flex justify="space-between" align="center" gap={3} wrap="wrap" mb={4}>
@@ -60,14 +77,62 @@ export function EnquiryDetail({ enquiry, variant = 'customer' }: EnquiryDetailPr
         <Field label="End date" value={formatDate(enquiry.end_date)} />
         <Field label="Pickup location" value={enquiry.pickup_location} />
         <Field label="Drop location" value={enquiry.drop_location} />
-        <Field label="Adults" value={String(enquiry.adults_count)} />
-        <Field label="Kids" value={String(enquiry.kids_count)} />
+        {hasPassengers ? (
+          <Field label="Total travellers" value={String(enquiry.adults_count)} />
+        ) : (
+          <>
+            <Field label="Adults" value={String(enquiry.adults_count)} />
+            <Field label="Kids" value={String(enquiry.kids_count)} />
+          </>
+        )}
         <Field label="Vehicle preference" value={enquiry.vehicle_preference} />
         <Field label="Submitted" value={formatDate(enquiry.created_at)} />
       </SimpleGrid>
       <Box mt={4}>
         <Field label="Travel routes" value={enquiry.travel_routes} />
       </Box>
+      {hasPassengers && (
+        <Box mt={6} aria-label="Travellers">
+          <Text fontSize="lg" fontWeight="semibold" mb={2}>
+            Travellers
+          </Text>
+          <TableContainer>
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr>
+                  <Th>#</Th>
+                  <Th>Name</Th>
+                  <Th>Mobile</Th>
+                  <Th>Gender</Th>
+                  <Th>Languages</Th>
+                  <Th>Communication</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {passengers.map((passenger) => (
+                  <Tr key={passenger.id}>
+                    <Td>{passenger.position}</Td>
+                    <Td whiteSpace="normal" wordBreak="break-word">
+                      {passenger.name}
+                    </Td>
+                    <Td>{passenger.mobile}</Td>
+                    <Td textTransform="capitalize">{passenger.gender}</Td>
+                    <Td whiteSpace="normal" wordBreak="break-word">
+                      {passenger.spoken_languages.join(', ')}
+                    </Td>
+                    <Td>{formatMediums(passenger.communication_mediums)}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </TableContainer>
+          {additionalTravellers > 0 && (
+            <Text mt={3} fontWeight="medium">
+              Additional travellers: {additionalTravellers}
+            </Text>
+          )}
+        </Box>
+      )}
       {enquiry.others && (
         <Box mt={4}>
           <Field label="Others" value={enquiry.others} />
