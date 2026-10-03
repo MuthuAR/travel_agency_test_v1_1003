@@ -1,5 +1,5 @@
 import api from './api';
-import type { AdminEnquiry, AdminEnquiryFilters, Paginated } from '../types';
+import type { AdminEnquiry, AdminEnquiryFilters, AdminSettableStatus, Paginated } from '../types';
 
 export const adminService = {
   async listEnquiries(filters: AdminEnquiryFilters): Promise<Paginated<AdminEnquiry>> {
@@ -17,6 +17,11 @@ export const adminService = {
 
   async getEnquiry(id: number): Promise<AdminEnquiry> {
     const res = await api.get<AdminEnquiry>(`/admin/enquiries/${id}`);
+    return res.data;
+  },
+
+  async updateStatus(id: number, status: AdminSettableStatus): Promise<AdminEnquiry> {
+    const res = await api.patch<AdminEnquiry>(`/admin/enquiries/${id}/status`, { status });
     return res.data;
   },
 };

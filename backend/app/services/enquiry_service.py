@@ -1,10 +1,12 @@
 """Enquiry business logic for customers."""
 
 import logging
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, Date, DateTime, cast, extract, func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.config import settings
 from app.exceptions import NotFoundError, UnprocessableError
 from app.models import AccountType, EnquiryPassenger
 from app.models.enquiry import Enquiry, EnquiryStatus
@@ -96,11 +98,51 @@ def get_enquiry_no(db: Session, user_id: int, enquiry_id: int) -> int:
     )
 
 
+def _local_created_at() -> ColumnElement[datetime]:
+    """created_at shifted to the business-local wall clock (naive timestamp)."""
+    utc_naive = func.timezone("UTC", Enquiry.created_at, type_=DateTime())
+    return utc_naive + timedelta(minutes=settings.DISPLAY_TZ_OFFSET_MINUTES)
+
+
+def _submission_filters(
+    status: EnquiryStatus | None,
+    year: int | None,
+    month: int | None,
+    on_date: date | None,
+) -> list[ColumnElement[bool]]:
+    """WHERE conditions; `on_date` wins over year/month."""
+    conditions: list[ColumnElement[bool]] = []
+    if status is not None:
+        conditions.append(Enquiry.status == status)
+    if on_date is not None:
+        conditions.append(cast(_local_created_at(), Date) == on_date)
+    else:
+        if year is not None:
+            conditions.append(extract("year", _local_created_at()) == year)
+        if month is not None:
+            conditions.append(extract("month", _local_created_at()) == month)
+    return conditions
+
+
 def list_user_enquiries(
-    db: Session, user_id: int, page: int, page_size: int
+    db: Session,
+    user_id: int,
+    page: int,
+    page_size: int,
+    status: EnquiryStatus | None = None,
+    year: int | None = None,
+    month: int | None = None,
+    on_date: date | None = None,
 ) -> tuple[list[tuple[Enquiry, int]], int]:
-    """Return one page of (enquiry, enquiry_no) pairs, newest first, and the total count."""
-    total = db.scalar(select(func.count(Enquiry.id)).where(Enquiry.user_id == user_id)) or 0
+    """Return one filtered page of (enquiry, enquiry_no) pairs, newest first, and the total.
+
+    enquiry_no is ranked over the user's full history; filters apply afterwards.
+    """
+    conditions = _submission_filters(status, year, month, on_date)
+    total = (
+        db.scalar(select(func.count(Enquiry.id)).where(Enquiry.user_id == user_id, *conditions))
+        or 0
+    )
     ranked = (
         select(
             Enquiry.id.label("id"),
@@ -114,6 +156,7 @@ def list_user_enquiries(
     stmt = (
         select(Enquiry, ranked.c.enquiry_no)
         .join(ranked, ranked.c.id == Enquiry.id)
+        .where(*conditions)
         .options(selectinload(Enquiry.passengers))
         .order_by(Enquiry.created_at.desc(), Enquiry.id.desc())
         .offset((page - 1) * page_size)

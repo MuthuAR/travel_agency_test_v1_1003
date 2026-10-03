@@ -7,10 +7,10 @@ import type { EnquiryStatus } from '../types';
 describe('StatusBadge', () => {
   const cases: Array<[EnquiryStatus, string]> = [
     ['new', 'New'],
-    ['contacted', 'Contacted'],
+    ['ack', 'Acknowledged'],
     ['confirmed', 'Confirmed'],
     ['cancelled', 'Cancelled'],
-    ['closed', 'Closed'],
+    ['completed', 'Completed'],
   ];
 
   it.each(cases)('renders the label for %s', (status, label) => {

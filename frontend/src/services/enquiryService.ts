@@ -1,5 +1,5 @@
 import api from './api';
-import type { Enquiry, EnquiryCreatePayload, Paginated } from '../types';
+import type { Enquiry, EnquiryCreatePayload, EnquiryFilters, Paginated } from '../types';
 
 export const enquiryService = {
   async create(payload: EnquiryCreatePayload): Promise<Enquiry> {
@@ -7,10 +7,17 @@ export const enquiryService = {
     return res.data;
   },
 
-  async list(page: number, pageSize: number): Promise<Paginated<Enquiry>> {
-    const res = await api.get<Paginated<Enquiry>>('/enquiries', {
-      params: { page, page_size: pageSize },
-    });
+  async list(
+    page: number,
+    pageSize: number,
+    filters?: EnquiryFilters,
+  ): Promise<Paginated<Enquiry>> {
+    const params: Record<string, string | number> = { page, page_size: pageSize };
+    if (filters?.status) params.status = filters.status;
+    if (filters?.year) params.year = filters.year;
+    if (filters?.month) params.month = filters.month;
+    if (filters?.date) params.date = filters.date;
+    const res = await api.get<Paginated<Enquiry>>('/enquiries', { params });
     return res.data;
   },
 

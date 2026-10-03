@@ -1,4 +1,4 @@
-"""Admin router (read-only in the MVP)."""
+"""Admin router: enquiry views and status updates."""
 
 from datetime import date
 
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.dependencies import get_db, require_admin
 from app.models.enquiry import EnquiryStatus
 from app.models.user import User
-from app.schemas.admin import AdminEnquiryListOut, AdminEnquiryOut
+from app.schemas.admin import AdminEnquiryListOut, AdminEnquiryOut, StatusUpdateIn
 from app.services import admin_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -47,3 +47,14 @@ async def get_enquiry(
 ) -> AdminEnquiryOut:
     """Return one enquiry with customer details (admin only)."""
     return admin_service.get_enquiry(db, enquiry_id)
+
+
+@router.patch("/enquiries/{enquiry_id}/status", response_model=AdminEnquiryOut)
+async def update_enquiry_status(
+    enquiry_id: int,
+    payload: StatusUpdateIn,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> AdminEnquiryOut:
+    """Change an enquiry status (admin only); the customer sees it on their next read."""
+    return admin_service.update_enquiry_status(db, enquiry_id, payload.status, admin)

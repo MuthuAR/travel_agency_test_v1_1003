@@ -14,3 +14,16 @@ export function formatEnquiryRef(n: number): string {
 export function formatGlobalEnquiryRef(id: number): string {
   return `G-${formatEnquiryRef(id)}`;
 }
+
+/** Format an ISO datetime for display with the time (e.g. 03 Oct 2026, 14:05). */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

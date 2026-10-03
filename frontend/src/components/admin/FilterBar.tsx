@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Button, FormControl, FormLabel, Input, Select, SimpleGrid, chakra } from '@chakra-ui/react';
 import { GradientButton } from '../ui/GradientButton';
+import { STATUS_LABELS, STATUS_ORDER, isStatus } from '../../lib/status';
 import type { EnquiryStatus } from '../../types';
 
 export interface EnquiryFilterValues {
@@ -18,11 +19,8 @@ export const EMPTY_FILTERS: EnquiryFilterValues = {
   start_date_to: '',
 };
 
-const STATUS_OPTIONS: EnquiryStatus[] = ['new', 'contacted', 'confirmed', 'cancelled', 'closed'];
 
-function isStatus(value: string): value is EnquiryStatus {
-  return STATUS_OPTIONS.some((s) => s === value);
-}
+
 
 interface FilterBarProps {
   initial: EnquiryFilterValues;
@@ -61,9 +59,9 @@ export function FilterBar({ initial, onApply }: FilterBarProps) {
           <FormLabel fontSize="sm">Status</FormLabel>
           <Select value={values.status} onChange={handleStatus} bg="white" rounded="xl">
             <option value="">All statuses</option>
-            {STATUS_OPTIONS.map((s) => (
+            {STATUS_ORDER.map((s) => (
               <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
+                {STATUS_LABELS[s]}
               </option>
             ))}
           </Select>

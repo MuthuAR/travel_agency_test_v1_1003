@@ -1,11 +1,13 @@
 """Customer enquiries router."""
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_current_user, get_db
 from app.limiter import limiter
-from app.models.enquiry import Enquiry
+from app.models.enquiry import Enquiry, EnquiryStatus
 from app.models.user import User
 from app.schemas.enquiry import EnquiryCreate, EnquiryListOut, EnquiryOut
 from app.services import enquiry_service
@@ -37,11 +39,21 @@ async def create_enquiry(
 async def list_my_enquiries(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
+    status: EnquiryStatus | None = Query(None),
+    year: int | None = Query(None, ge=2000, le=2100),
+    month: int | None = Query(None, ge=1, le=12),
+    date: date | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EnquiryListOut:
-    """List the caller's own enquiries, newest first."""
-    items, total = enquiry_service.list_user_enquiries(db, current_user.id, page, page_size)
+    """List the caller's own enquiries, newest first.
+
+    Date filters apply to the submission date in the business-local calendar; `date` wins
+    over `year`/`month`.
+    """
+    items, total = enquiry_service.list_user_enquiries(
+        db, current_user.id, page, page_size, status=status, year=year, month=month, on_date=date
+    )
     return EnquiryListOut(
         items=[_to_out(item, number) for item, number in items],
         total=total,

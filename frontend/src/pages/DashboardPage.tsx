@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, AlertIcon, Container, Flex, Spinner, Text } from '@chakra-ui/react';
+import { Alert, AlertIcon, Button, Container, Flex, Spinner, Text, VStack } from '@chakra-ui/react';
 import { AppHeader } from '../components/layout/AppHeader';
 import { EnquiryList } from '../components/enquiry/EnquiryList';
+import { EnquiryFilterBar } from '../components/enquiry/EnquiryFilterBar';
+import { GlassCard } from '../components/ui/GlassCard';
 import { Pagination } from '../components/admin/Pagination';
 import { GradientButton } from '../components/ui/GradientButton';
 import { PageWrapper } from '../components/ui/PageWrapper';
@@ -11,7 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { enquiryService } from '../services/enquiryService';
 import { profileService } from '../services/profileService';
 import { getErrorMessage } from '../lib/errors';
-import type { Enquiry, Paginated } from '../types';
+import type { Enquiry, EnquiryFilters, Paginated } from '../types';
 
 const PAGE_SIZE = 10;
 
@@ -19,6 +21,8 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [page, setPage] = useState<number>(1);
+  const [filters, setFilters] = useState<EnquiryFilters>({});
+  const [filterKey, setFilterKey] = useState<number>(0);
   const [data, setData] = useState<Paginated<Enquiry> | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +33,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     enquiryService
-      .list(page, PAGE_SIZE)
+      .list(page, PAGE_SIZE, filters)
       .then((res) => {
         if (!cancelled) setData(res);
       })
@@ -42,7 +46,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [page]);
+  }, [page, filters]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +62,18 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, []);
+
+  const hasFilters = Object.values(filters).some((v) => v !== undefined);
+
+  const handleApply = (next: EnquiryFilters): void => {
+    setFilters(next);
+    setPage(1);
+  };
+
+  const handleResetFromEmpty = (): void => {
+    setFilterKey((k) => k + 1);
+    handleApply({});
+  };
 
   const displayName = profileName || (user ? (user.email ?? user.mobile) : '');
   const greeting = displayName ? `Welcome back, ${displayName}` : 'Welcome back';
@@ -77,6 +93,14 @@ export default function DashboardPage() {
           My enquiries
         </Text>
 
+        <EnquiryFilterBar key={filterKey} onApply={handleApply} />
+
+        {hasFilters && data && !loading && (
+          <Text color="gray.600" mb={4} aria-live="polite">
+            {data.total === 1 ? '1 enquiry found' : `${data.total} enquiries found`}
+          </Text>
+        )}
+
         {error && (
           <Alert status="error" rounded="xl" mb={4}>
             <AlertIcon />
@@ -91,7 +115,20 @@ export default function DashboardPage() {
         ) : (
           data && (
             <>
-              <EnquiryList enquiries={data.items} />
+              {hasFilters && data.items.length === 0 ? (
+                <GlassCard textAlign="center" py={12}>
+                  <VStack spacing={4}>
+                    <Text fontSize="xl" fontWeight="bold">
+                      No enquiries match your filters.
+                    </Text>
+                    <Button variant="outline" rounded="full" onClick={handleResetFromEmpty}>
+                      Reset
+                    </Button>
+                  </VStack>
+                </GlassCard>
+              ) : (
+                <EnquiryList enquiries={data.items} />
+              )}
               {data.total > PAGE_SIZE && (
                 <Pagination
                   page={data.page}

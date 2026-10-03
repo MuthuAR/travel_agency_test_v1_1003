@@ -12,15 +12,16 @@ from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.enquiry_passenger import EnquiryPassenger
+    from app.models.enquiry_status_history import EnquiryStatusHistory
     from app.models.user import User
 
 
 class EnquiryStatus(str, enum.Enum):
     new = "new"
-    contacted = "contacted"
+    ack = "ack"
     confirmed = "confirmed"
     cancelled = "cancelled"
-    closed = "closed"
+    completed = "completed"
 
 
 class Enquiry(Base, TimestampMixin):
@@ -63,6 +64,12 @@ class Enquiry(Base, TimestampMixin):
         back_populates="enquiry",
         cascade="all, delete-orphan",
         order_by="EnquiryPassenger.position",
+    )
+    status_history: Mapped[list[EnquiryStatusHistory]] = relationship(
+        "EnquiryStatusHistory",
+        back_populates="enquiry",
+        cascade="all, delete-orphan",
+        order_by="(EnquiryStatusHistory.changed_at, EnquiryStatusHistory.id)",
     )
 
     __table_args__ = (

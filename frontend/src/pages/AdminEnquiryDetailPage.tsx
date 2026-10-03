@@ -5,6 +5,7 @@ import { Alert, AlertIcon, Container, Flex, Link, Spinner, VStack } from '@chakr
 import { AppHeader } from '../components/layout/AppHeader';
 import { EnquiryDetail } from '../components/enquiry/EnquiryDetail';
 import { CustomerInfoCard } from '../components/admin/CustomerInfoCard';
+import { StatusPanel } from '../components/admin/StatusPanel';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { TextReveal } from '../components/ui/TextReveal';
 import { adminService } from '../services/adminService';
@@ -72,6 +73,7 @@ export default function AdminEnquiryDetailPage() {
         {!loading && !error && enquiry && (
           <VStack spacing={6} align="stretch">
             <EnquiryDetail enquiry={enquiry} variant="admin" />
+            <StatusPanel enquiry={enquiry} onUpdated={setEnquiry} />
             <CustomerInfoCard customer={enquiry.customer} />
           </VStack>
         )}

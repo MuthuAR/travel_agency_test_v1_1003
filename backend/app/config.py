@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: str = ""
     ADMIN_PASSWORD: str = ""
     ADMIN_MOBILE: str = "0000000000"
+    # Business-local calendar offset from UTC in minutes (India UTC+05:30 = 330, no DST).
+    DISPLAY_TZ_OFFSET_MINUTES: int = 330
+
+    @field_validator("DISPLAY_TZ_OFFSET_MINUTES")
+    @classmethod
+    def validate_tz_offset(cls, value: int) -> int:
+        """UTC offsets range from -12:00 to +14:00."""
+        if not -720 <= value <= 840:
+            raise ValueError("DISPLAY_TZ_OFFSET_MINUTES must be between -720 and 840")
+        return value
 
     @field_validator("CUSTOMER_IDLE_TIMEOUT_MINUTES", "CUSTOMER_SESSION_MAX_HOURS")
     @classmethod

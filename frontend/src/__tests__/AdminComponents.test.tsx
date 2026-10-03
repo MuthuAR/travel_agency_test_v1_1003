@@ -70,7 +70,7 @@ describe('EnquiryTable', () => {
       <EnquiryTable
         enquiries={[
           makeAdminEnquiry({ id: 5 }),
-          makeAdminEnquiry({ id: 6, customer: null, status: 'closed' }),
+          makeAdminEnquiry({ id: 6, customer: null, status: 'completed' }),
         ]}
       />,
     );
@@ -78,7 +78,7 @@ describe('EnquiryTable', () => {
     expect(screen.getByText('Asha Kumar')).toBeInTheDocument();
     expect(screen.getByText('9876543210')).toBeInTheDocument();
     expect(screen.getByText('Unknown')).toBeInTheDocument();
-    expect(screen.getByText('Closed')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View enquiry 5' })).toHaveAttribute(
       'href',
       '/admin/enquiries/5',

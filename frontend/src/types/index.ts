@@ -5,8 +5,27 @@ export type CommunicationMedium = 'whatsapp' | 'sms' | 'email';
 // ASSUMPTION: the PRP does not enumerate gender values.
 export type Gender = 'male' | 'female' | 'other';
 
-// ASSUMPTION: the PRP only fixes the default `new`; remaining values are provisional.
-export type EnquiryStatus = 'new' | 'contacted' | 'confirmed' | 'cancelled' | 'closed';
+// Lifecycle: staff may move between any non-new statuses; an enquiry never returns to new.
+export type EnquiryStatus = 'new' | 'ack' | 'confirmed' | 'cancelled' | 'completed';
+
+/** Statuses staff may set (never 'new'). */
+export type AdminSettableStatus = Exclude<EnquiryStatus, 'new'>;
+
+export interface StatusHistoryEntry {
+  id: number;
+  from_status: EnquiryStatus | null;
+  to_status: EnquiryStatus;
+  changed_at: string;
+  changed_by_email: string | null;
+}
+
+/** Customer dashboard filters; all apply to the date the enquiry was submitted. */
+export interface EnquiryFilters {
+  status?: EnquiryStatus;
+  year?: number;
+  month?: number;
+  date?: string;
+}
 
 export interface User {
   id: number;
@@ -80,6 +99,8 @@ export interface Enquiry {
 /** Admin view: enquiry together with the customer's profile. */
 export interface AdminEnquiry extends Enquiry {
   customer: CustomerProfile | null;
+  /** Oldest first; present on detail responses, null on the admin list. */
+  status_history?: StatusHistoryEntry[] | null;
 }
 
 export interface Paginated<T> {
