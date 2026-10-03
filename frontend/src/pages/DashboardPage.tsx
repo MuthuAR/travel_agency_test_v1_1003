@@ -9,6 +9,7 @@ import { PageWrapper } from '../components/ui/PageWrapper';
 import { TextReveal } from '../components/ui/TextReveal';
 import { useAuth } from '../hooks/useAuth';
 import { enquiryService } from '../services/enquiryService';
+import { profileService } from '../services/profileService';
 import { getErrorMessage } from '../lib/errors';
 import type { Enquiry, Paginated } from '../types';
 
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<Paginated<Enquiry> | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +44,23 @@ export default function DashboardPage() {
     };
   }, [page]);
 
-  const greeting = user ? `Welcome back, ${user.email ?? user.mobile}` : 'Welcome back';
+  useEffect(() => {
+    let cancelled = false;
+    profileService
+      .getProfile()
+      .then((profile) => {
+        if (!cancelled) setProfileName(profile.name.trim());
+      })
+      .catch(() => {
+        // Fall back to the email/mobile greeting; a failed profile fetch is not user-facing.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const displayName = profileName || (user ? (user.email ?? user.mobile) : '');
+  const greeting = displayName ? `Welcome back, ${displayName}` : 'Welcome back';
 
   return (
     <PageWrapper>

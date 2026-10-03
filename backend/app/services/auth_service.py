@@ -14,8 +14,9 @@ from app.auth.jwt import (
     refresh_token_expiry,
 )
 from app.auth.security import hash_password, verify_password
+from app.auth.session_policy import session_max_age
 from app.exceptions import ConflictError, UnauthorizedError
-from app.models.customer_profile import CommunicationMedium, CustomerProfile
+from app.models.customer_profile import CustomerProfile
 from app.models.refresh_token import RefreshToken
 from app.models.user import User, UserRole
 from app.schemas.auth import RegisterRequest, RegisterResponse, TokenResponse
@@ -51,7 +52,7 @@ def register_user(db: Session, data: RegisterRequest) -> RegisterResponse:
         name=data.name,
         gender=data.gender,
         spoken_languages=list(data.spoken_languages),
-        communication_medium=CommunicationMedium(data.communication_medium),
+        communication_mediums=list(data.communication_mediums),
         address=data.address,
     )
     user.profile = profile
@@ -99,14 +100,21 @@ def authenticate(db: Session, identifier: str, password: str) -> User:
     return user
 
 
-def issue_tokens(db: Session, user: User) -> TokenResponse:
-    """Create an access JWT and a stored (hashed) refresh token."""
+def issue_tokens(
+    db: Session, user: User, session_started_at: datetime | None = None
+) -> TokenResponse:
+    """Create an access JWT and a stored (hashed) refresh token.
+
+    session_started_at is None for a fresh login (the session starts now); rotation passes the
+    original value so the hard session cap cannot be extended by refreshing.
+    """
     raw_refresh = generate_refresh_token()
     db.add(
         RefreshToken(
             user_id=user.id,
             token_hash=hash_refresh_token(raw_refresh),
-            expires_at=refresh_token_expiry(),
+            expires_at=refresh_token_expiry(user.role.value),
+            session_started_at=session_started_at or datetime.now(UTC),
         )
     )
     db.commit()
@@ -136,9 +144,15 @@ def rotate_refresh_token(db: Session, raw_token: str) -> TokenResponse:
     if user is None or not user.is_active:
         db.rollback()
         raise UnauthorizedError(INVALID_REFRESH_MESSAGE)
+    max_age = session_max_age(user.role.value)
+    if max_age is not None and datetime.now(UTC) - record.session_started_at > max_age:
+        record.revoked = True
+        db.commit()
+        logger.info("Refresh rejected: customer session exceeded maximum age")
+        raise UnauthorizedError(INVALID_REFRESH_MESSAGE)
     record.revoked = True
     db.flush()
-    return issue_tokens(db, user)
+    return issue_tokens(db, user, session_started_at=record.session_started_at)
 
 
 def revoke_refresh_token(db: Session, raw_token: str) -> None:

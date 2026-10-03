@@ -28,5 +28,10 @@ class RefreshToken(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # Set at login and inherited unchanged when a refresh token is rotated,
+    # so the backend can enforce a maximum session length.
+    session_started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     user: Mapped[User] = relationship("User", back_populates="refresh_tokens")

@@ -24,7 +24,6 @@ from app.limiter import limiter  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
     Base,
-    CommunicationMedium,
     CustomerProfile,
     User,
     UserRole,
@@ -94,7 +93,7 @@ def make_user(db: Session) -> Callable[..., User]:
                 name="Test User",
                 gender="other",
                 spoken_languages=["English"],
-                communication_medium=CommunicationMedium.sms,
+                communication_mediums=["whatsapp"],
                 address="12 Test Street, Test City",
             )
         db.add(user)

@@ -19,7 +19,7 @@ const baseProfile: CustomerProfile = {
   name: 'Jane Doe',
   gender: 'female',
   spoken_languages: ['English', 'Urdu'],
-  communication_medium: 'sms',
+  communication_mediums: ['sms'],
   address: '12 Beach Road',
   mobile: '9876543210',
   email: 'jane@example.com',
@@ -70,12 +70,49 @@ describe('ProfileForm', () => {
       name: 'Jane Smith',
       gender: 'female',
       spoken_languages: ['English', 'Urdu'],
-      communication_medium: 'sms',
+      communication_mediums: ['sms'],
       address: '12 Beach Road',
       mobile: '9876543210',
       email: 'jane@example.com',
     });
     expect(await screen.findByText('Profile updated')).toBeInTheDocument();
+  });
+
+  it('preserves a previously saved non-standard language in the other field', async () => {
+    const user = userEvent.setup();
+    getProfile.mockResolvedValue({ ...baseProfile, spoken_languages: ['Tamil', 'Telugu'] });
+    updateProfile.mockResolvedValue(baseProfile);
+    renderWithAuth(<ProfileForm />);
+
+    expect(await screen.findByDisplayValue('Telugu')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+    expect(updateProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ spoken_languages: ['Tamil', 'Telugu'] }),
+    );
+  });
+
+  it('saves multiple communication mediums and blocks saving with none', async () => {
+    const user = userEvent.setup();
+    updateProfile.mockResolvedValue(baseProfile);
+    renderWithAuth(<ProfileForm />);
+
+    await user.click(await screen.findByRole('button', { name: 'Edit profile' }));
+    await user.click(screen.getByLabelText('SMS'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Select at least one communication medium')).toBeInTheDocument();
+    expect(updateProfile).not.toHaveBeenCalled();
+
+    await user.click(screen.getByLabelText('Email'));
+    await user.click(screen.getByLabelText('WhatsApp'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+    expect(updateProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ communication_mediums: ['whatsapp', 'email'] }),
+    );
   });
 
   it('blocks saving when a required field is cleared', async () => {

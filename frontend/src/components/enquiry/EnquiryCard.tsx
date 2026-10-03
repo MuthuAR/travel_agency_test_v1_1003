@@ -2,7 +2,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Flex, Link, Text } from '@chakra-ui/react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatusBadge } from './StatusBadge';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatEnquiryRef } from '../../lib/format';
 import type { Enquiry } from '../../types';
 
 interface EnquiryCardProps {
@@ -18,7 +18,7 @@ export function EnquiryCard({ enquiry }: EnquiryCardProps) {
       display="block"
       mb={4}
       _hover={{ textDecoration: 'none' }}
-      aria-label={`Enquiry ${enquiry.id}: ${enquiry.pickup_location} to ${enquiry.drop_location}`}
+      aria-label={`Enquiry ${formatEnquiryRef(enquiry.enquiry_no ?? enquiry.id)}:${enquiry.pickup_location} to ${enquiry.drop_location}`}
     >
       <GlassCard>
         <Flex justify="space-between" align="start" gap={3} wrap="wrap">

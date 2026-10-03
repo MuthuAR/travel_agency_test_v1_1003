@@ -16,7 +16,7 @@ def update_payload(**overrides: Any) -> dict[str, Any]:
         "name": "Updated Name",
         "gender": "male",
         "spoken_languages": ["Hindi", "English"],
-        "communication_medium": "email",
+        "communication_mediums": ["email"],
         "address": "99 New Road, Mumbai",
         "mobile": "9876543210",
         "email": "updated@example.com",
@@ -35,7 +35,7 @@ def test_get_profile(
     assert body["name"] == "Test User"
     assert body["gender"] == "other"
     assert body["spoken_languages"] == ["English"]
-    assert body["communication_medium"] == "sms"
+    assert body["communication_mediums"] == ["whatsapp"]
     assert body["address"] == "12 Test Street, Test City"
     assert body["mobile"] == "9876543210"
     assert body["email"] == "p@example.com"
@@ -70,7 +70,7 @@ def test_update_profile(
     assert body["name"] == "Updated Name"
     assert body["gender"] == "male"
     assert body["spoken_languages"] == ["Hindi", "English"]
-    assert body["communication_medium"] == "email"
+    assert body["communication_mediums"] == ["email"]
     assert body["address"] == "99 New Road, Mumbai"
     assert body["mobile"] == "+919876500000"
     assert body["email"] == "new@example.com"
@@ -151,3 +151,42 @@ def test_update_profile_validation(
 
 def test_update_profile_requires_auth(client: TestClient) -> None:
     assert client.put(URL, json=update_payload()).status_code == 401
+
+
+def test_update_profile_with_several_mediums(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(mobile="9876543210", email="p@example.com")
+    headers = login_headers("p@example.com")
+    response = client.put(
+        URL, headers=headers, json=update_payload(communication_mediums=["sms", "email"])
+    )
+    assert response.status_code == 200
+    assert response.json()["communication_mediums"] == ["sms", "email"]
+    assert client.get(URL, headers=headers).json()["communication_mediums"] == ["sms", "email"]
+
+
+def test_update_profile_collapses_duplicate_mediums(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(mobile="9876543210", email="p@example.com")
+    headers = login_headers("p@example.com")
+    response = client.put(
+        URL,
+        headers=headers,
+        json=update_payload(communication_mediums=["email", "whatsapp", "email"]),
+    )
+    assert response.status_code == 200
+    assert response.json()["communication_mediums"] == ["email", "whatsapp"]
+
+
+def test_update_profile_rejects_bad_mediums(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(mobile="9876543210", email="p@example.com")
+    headers = login_headers("p@example.com")
+    for value in ([], ["pigeon"], ["email", "carrier"], "email"):
+        response = client.put(
+            URL, headers=headers, json=update_payload(communication_mediums=value)
+        )
+        assert response.status_code == 422, value

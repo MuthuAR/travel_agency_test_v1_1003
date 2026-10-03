@@ -59,7 +59,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
 
     const trimmedEmail = email.trim();
     // validateProfileFields guarantees gender and medium are set.
-    if (profile.gender === '' || profile.communicationMedium === '') return;
+    if (profile.gender === '' || profile.communicationMediums.length === 0) return;
 
     setSubmitting(true);
     try {
@@ -70,7 +70,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
         name: profile.name.trim(),
         gender: profile.gender,
         spoken_languages: buildLanguages(profile.languages, profile.otherLanguages),
-        communication_medium: profile.communicationMedium,
+        communication_mediums: profile.communicationMediums,
         address: profile.address.trim(),
       });
       onSuccess(user);

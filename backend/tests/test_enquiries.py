@@ -320,3 +320,68 @@ def test_history_visible_after_fresh_login(
     body = response.json()
     assert body["total"] == 1
     assert body["items"][0]["id"] == created.json()["id"]
+
+
+def test_enquiry_no_is_per_user_sequence(
+    client: TestClient,
+    db: Session,
+    make_user: MakeUser,
+    login_headers: Callable[..., dict[str, str]],
+) -> None:
+    user_a = make_user(mobile="9876543210")
+    make_user(mobile="9123456780")
+    _insert_enquiry(db, user_a)
+    _insert_enquiry(db, user_a)
+    headers_a = login_headers("9876543210")
+    headers_b = login_headers("9123456780")
+
+    third = client.post(URL, json=_payload(), headers=headers_a)
+    first_b = client.post(URL, json=_payload(), headers=headers_b)
+    second_b = client.post(URL, json=_payload(), headers=headers_b)
+
+    assert third.status_code == 201
+    assert third.json()["enquiry_no"] == 3
+    assert third.json()["id"] == 3
+    assert first_b.json()["enquiry_no"] == 1
+    assert first_b.json()["id"] == 4
+    assert second_b.json()["enquiry_no"] == 2
+
+
+def test_first_and_second_enquiry_numbers_on_create(
+    client: TestClient, make_user: MakeUser, login_headers: Callable[..., dict[str, str]]
+) -> None:
+    make_user(mobile="9876543210")
+    headers = login_headers("9876543210")
+
+    first = client.post(URL, json=_payload(), headers=headers).json()
+    second = client.post(URL, json=_payload(), headers=headers).json()
+
+    assert first["enquiry_no"] == 1
+    assert second["enquiry_no"] == 2
+
+
+def test_enquiry_no_list_and_detail_agree_and_ids_stay_global(
+    client: TestClient,
+    db: Session,
+    make_user: MakeUser,
+    login_headers: Callable[..., dict[str, str]],
+) -> None:
+    user_a = make_user(mobile="9876543210")
+    user_b = make_user(mobile="9123456780")
+    _insert_enquiry(db, user_a)
+    b1 = _insert_enquiry(db, user_b)
+    _insert_enquiry(db, user_a)
+    b2 = _insert_enquiry(db, user_b)
+    headers_b = login_headers("9123456780")
+
+    body = client.get(URL, headers=headers_b).json()
+
+    assert [(i["id"], i["enquiry_no"]) for i in body["items"]] == [(b2.id, 2), (b1.id, 1)]
+    for item in body["items"]:
+        detail = client.get(f"{URL}/{item['id']}", headers=headers_b).json()
+        assert detail["id"] == item["id"]
+        assert detail["enquiry_no"] == item["enquiry_no"]
+    assert b1.id != 1 and b2.id != 2
+
+    page2 = client.get(URL, params={"page": 2, "page_size": 1}, headers=headers_b).json()
+    assert [(i["id"], i["enquiry_no"]) for i in page2["items"]] == [(b1.id, 1)]

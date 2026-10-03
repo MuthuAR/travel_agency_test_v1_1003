@@ -71,7 +71,7 @@ export default function AdminEnquiryDetailPage() {
         )}
         {!loading && !error && enquiry && (
           <VStack spacing={6} align="stretch">
-            <EnquiryDetail enquiry={enquiry} />
+            <EnquiryDetail enquiry={enquiry} variant="admin" />
             <CustomerInfoCard customer={enquiry.customer} />
           </VStack>
         )}

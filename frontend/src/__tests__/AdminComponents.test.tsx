@@ -85,6 +85,15 @@ describe('EnquiryTable', () => {
     );
   });
 
+  it('shows both the global and customer enquiry references', () => {
+    renderWithProviders(<EnquiryTable enquiries={[makeAdminEnquiry({ id: 7, enquiry_no: 1 })]} />);
+
+    expect(screen.getByText('Global ENQ')).toBeInTheDocument();
+    expect(screen.getByText('Customer ENQ')).toBeInTheDocument();
+    expect(screen.getByText('G-ENQ-0007')).toBeInTheDocument();
+    expect(screen.getByText('ENQ-0001')).toBeInTheDocument();
+  });
+
   it('shows an empty message when there are no rows', () => {
     renderWithProviders(<EnquiryTable enquiries={[]} />);
     expect(screen.getByText('No enquiries match your filters.')).toBeInTheDocument();

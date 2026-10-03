@@ -1,5 +1,8 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import axios from 'axios';
+import { clearLastActivity, writeLastActivity } from '../lib/sessionActivity';
+import { EXPIRED_NOTICE, setLoginNoticeIfAbsent } from '../lib/sessionNotice';
 import { refreshAccessToken, setUnauthorizedHandler } from '../services/api';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../lib/tokenStorage';
@@ -25,6 +28,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const userRef = useRef<User | null>(null);
 
   const fetchMe = useCallback((): Promise<User> => authService.me(), []);
 
@@ -51,11 +55,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [fetchMe]);
 
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  /** Forced sign-out (refresh rejected): leave a notice for customers on the login page. */
+  const expireSession = useCallback((): void => {
+    if (typeof userRef.current?.idle_timeout_minutes === 'number') {
+      setLoginNoticeIfAbsent(EXPIRED_NOTICE);
+    }
+    clearLastActivity();
+    setUser(null);
+  }, []);
+
   // A failed token refresh (in the api client) clears the session.
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null));
+    setUnauthorizedHandler(expireSession);
     return () => setUnauthorizedHandler(null);
-  }, []);
+  }, [expireSession]);
 
   const login = useCallback(
     async (identifier: string, password: string): Promise<User> => {
@@ -63,6 +80,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       tokenStorage.set(tokens.access_token, tokens.refresh_token);
       try {
         const me = await fetchMe();
+        writeLastActivity(Date.now());
         setUser(me);
         return me;
       } catch (error) {
@@ -90,14 +108,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Best-effort revoke; always clear the local session.
     }
     tokenStorage.clear();
+    clearLastActivity();
     setUser(null);
   }, []);
 
-  /** Rotate tokens and reload the current user. */
+  /** Rotate tokens and reload the current user. A rejected refresh ends the session. */
   const refresh = useCallback(async (): Promise<void> => {
-    await refreshAccessToken();
+    try {
+      await refreshAccessToken();
+    } catch (error) {
+      const networkOrServer =
+        axios.isAxiosError(error) && (!error.response || error.response.status >= 500);
+      if (!networkOrServer) {
+        tokenStorage.clear();
+        expireSession();
+      }
+      throw error;
+    }
     setUser(await fetchMe());
-  }, [fetchMe]);
+  }, [fetchMe, expireSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

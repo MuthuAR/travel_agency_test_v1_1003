@@ -8,9 +8,6 @@ export const COMMON_LANGUAGES: readonly string[] = [
   'English',
   'Tamil',
   'Hindi',
-  'Telugu',
-  'Malayalam',
-  'Kannada',
 ];
 
 export const GENDER_OPTIONS: ReadonlyArray<{ value: Gender; label: string }> = [
@@ -31,6 +28,19 @@ export function isGender(value: string): value is Gender {
 
 export function isCommunicationMedium(value: string): value is CommunicationMedium {
   return value === 'whatsapp' || value === 'sms' || value === 'email';
+}
+
+/** Keep only valid, unique media, in the canonical option order. */
+export function normalizeMediums(values: readonly string[]): CommunicationMedium[] {
+  return MEDIUM_OPTIONS.map((option) => option.value).filter((medium) => values.includes(medium));
+}
+
+/** Human-readable list, e.g. "WhatsApp, SMS". */
+export function formatMediums(values: readonly CommunicationMedium[]): string {
+  const labels = MEDIUM_OPTIONS.filter((option) => values.includes(option.value)).map(
+    (option) => option.label,
+  );
+  return labels.join(', ');
 }
 
 /** Strip spaces and dashes from a phone number. */
@@ -66,7 +76,7 @@ export interface ProfileFieldValues {
   gender: Gender | '';
   languages: string[];
   otherLanguages: string;
-  communicationMedium: CommunicationMedium | '';
+  communicationMediums: CommunicationMedium[];
   address: string;
 }
 
@@ -75,7 +85,7 @@ export const EMPTY_PROFILE_VALUES: ProfileFieldValues = {
   gender: '',
   languages: [],
   otherLanguages: '',
-  communicationMedium: '',
+  communicationMediums: [],
   address: '',
 };
 
@@ -103,7 +113,9 @@ export function validateProfileFields(values: ProfileFieldValues): FieldErrors {
   if (buildLanguages(values.languages, values.otherLanguages).length === 0) {
     errors.spoken_languages = 'Select or enter at least one language';
   }
-  if (!values.communicationMedium) errors.communication_medium = 'Select a communication medium';
+  if (values.communicationMediums.length === 0) {
+    errors.communication_mediums = 'Select at least one communication medium';
+  }
   if (!values.address.trim()) errors.address = 'Address is required';
   return errors;
 }

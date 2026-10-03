@@ -3,11 +3,12 @@
 import hashlib
 import logging
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import jwt
 
+from app.auth.session_policy import access_token_lifetime, refresh_token_lifetime
 from app.config import settings
 from app.exceptions import UnauthorizedError
 
@@ -24,7 +25,7 @@ def create_access_token(user_id: int, role: str) -> str:
         "role": role,
         "type": ACCESS_TOKEN_TYPE,
         "iat": now,
-        "exp": now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": now + access_token_lifetime(role),
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
@@ -58,6 +59,6 @@ def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def refresh_token_expiry() -> datetime:
-    """Expiry timestamp for a newly issued refresh token."""
-    return datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+def refresh_token_expiry(role: str) -> datetime:
+    """Expiry timestamp for a newly issued refresh token (depends on the role)."""
+    return datetime.now(UTC) + refresh_token_lifetime(role)

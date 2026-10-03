@@ -2,8 +2,9 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from app.auth.session_policy import idle_timeout_minutes_for_role
 from app.models.user import UserRole
 from app.schemas.profile import ContactMixin, ProfileBase, ProfileOut
 from app.utils.validators import validate_password_strength
@@ -55,6 +56,12 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def idle_timeout_minutes(self) -> int | None:
+        """Idle timeout for customers; null for admins."""
+        return idle_timeout_minutes_for_role(self.role)
 
 
 class RegisterResponse(UserOut):

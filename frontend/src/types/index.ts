@@ -14,6 +14,8 @@ export interface User {
   email: string | null;
   role: UserRole;
   is_active: boolean;
+  /** Idle timeout in minutes for customers; null (or absent) for admins. */
+  idle_timeout_minutes?: number | null;
   /** /auth/me does not return timestamps; present only on full user objects. */
   created_at?: string;
   updated_at?: string;
@@ -26,7 +28,7 @@ export interface CustomerProfile {
   name: string;
   gender: Gender;
   spoken_languages: string[];
-  communication_medium: CommunicationMedium;
+  communication_mediums: CommunicationMedium[];
   address: string;
   mobile: string;
   email: string | null;
@@ -36,6 +38,8 @@ export interface CustomerProfile {
 
 export interface Enquiry {
   id: number;
+  /** 1-based per-user sequence number shown to customers; falls back to `id`. */
+  enquiry_no?: number | null;
   user_id: number;
   start_date: string;
   end_date: string;
@@ -103,7 +107,7 @@ export interface RegisterPayload {
   name: string;
   gender: Gender;
   spoken_languages: string[];
-  communication_medium: CommunicationMedium;
+  communication_mediums: CommunicationMedium[];
   address: string;
 }
 
@@ -112,7 +116,7 @@ export interface ProfileUpdatePayload {
   name: string;
   gender: Gender;
   spoken_languages: string[];
-  communication_medium: CommunicationMedium;
+  communication_mediums: CommunicationMedium[];
   address: string;
   mobile: string;
   email: string | null;

@@ -4,7 +4,7 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,12 @@ if TYPE_CHECKING:
 
 
 class CommunicationMedium(str, enum.Enum):
+    """Allowed communication media.
+
+    Not a SQLAlchemy column type: values are stored as plain strings in
+    ``CustomerProfile.communication_mediums`` and validated by the schemas.
+    """
+
     whatsapp = "whatsapp"
     sms = "sms"
     email = "email"
@@ -31,14 +37,8 @@ class CustomerProfile(Base, TimestampMixin):
     gender: Mapped[str] = mapped_column(String(20), nullable=False)
     # Stored as a native PostgreSQL ARRAY(VARCHAR(50)) of language names.
     spoken_languages: Mapped[list[str]] = mapped_column(ARRAY(String(50)), nullable=False)
-    communication_medium: Mapped[CommunicationMedium] = mapped_column(
-        Enum(
-            CommunicationMedium,
-            name="communicationmedium",
-            values_callable=lambda e: [m.value for m in e],
-        ),
-        nullable=False,
-    )
+    # Native PostgreSQL ARRAY(VARCHAR(20)); values are CommunicationMedium values.
+    communication_mediums: Mapped[list[str]] = mapped_column(ARRAY(String(20)), nullable=False)
     address: Mapped[str] = mapped_column(Text, nullable=False)
 
     user: Mapped[User] = relationship("User", back_populates="profile")

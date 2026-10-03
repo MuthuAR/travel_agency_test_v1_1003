@@ -1,7 +1,7 @@
 import { Box, Divider, Flex, SimpleGrid, Text } from '@chakra-ui/react';
 import { GlassCard } from '../ui/GlassCard';
 import { StatusBadge } from './StatusBadge';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatEnquiryRef, formatGlobalEnquiryRef } from '../../lib/format';
 import type { Enquiry } from '../../types';
 
 interface FieldProps {
@@ -24,18 +24,36 @@ function Field({ label, value }: FieldProps) {
 
 interface EnquiryDetailProps {
   enquiry: Enquiry;
+  /** `admin` shows both the customer and global references; default `customer`. */
+  variant?: 'customer' | 'admin';
 }
 
 /** Renders every field as plain text. */
-export function EnquiryDetail({ enquiry }: EnquiryDetailProps) {
+export function EnquiryDetail({ enquiry, variant = 'customer' }: EnquiryDetailProps) {
+  const isAdmin = variant === 'admin';
   return (
     <GlassCard whileHover={{ scale: 1.0, y: 0 }}>
       <Flex justify="space-between" align="center" gap={3} wrap="wrap" mb={4}>
-        <Text fontSize="xl" fontWeight="bold">
-          Enquiry #{enquiry.id}
-        </Text>
+        {isAdmin ? (
+          <Text fontSize="xl" fontWeight="bold">
+            Enquiry
+          </Text>
+        ) : (
+          <Text fontSize="xl" fontWeight="bold">
+            Enquiry {formatEnquiryRef(enquiry.enquiry_no ?? enquiry.id)}
+          </Text>
+        )}
         <StatusBadge status={enquiry.status} />
       </Flex>
+      {isAdmin && (
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mb={4}>
+          <Field
+            label="Customer ENQ"
+            value={enquiry.enquiry_no != null ? formatEnquiryRef(enquiry.enquiry_no) : '-'}
+          />
+          <Field label="Global ENQ" value={formatGlobalEnquiryRef(enquiry.id)} />
+        </SimpleGrid>
+      )}
       <Divider mb={4} />
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
         <Field label="Start date" value={formatDate(enquiry.start_date)} />

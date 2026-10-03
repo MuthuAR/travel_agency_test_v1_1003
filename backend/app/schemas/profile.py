@@ -3,9 +3,15 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    StringConstraints,
+    field_validator,
+)
 
-from app.models.customer_profile import CommunicationMedium
 from app.utils.validators import normalize_mobile, normalize_optional_email
 
 Gender = Literal["male", "female", "other"]
@@ -22,8 +28,17 @@ class ProfileBase(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
     gender: Gender
     spoken_languages: list[Language] = Field(min_length=1, max_length=10)
-    communication_medium: CommunicationMediumValue
+    communication_mediums: list[CommunicationMediumValue] = Field(min_length=1, max_length=3)
     address: Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=500)]
+
+
+    @field_validator("communication_mediums")
+    @classmethod
+    def _dedupe_mediums(
+        cls, value: list[CommunicationMediumValue]
+    ) -> list[CommunicationMediumValue]:
+        """Drop duplicates while preserving the order given."""
+        return list(dict.fromkeys(value))
 
 
 class ContactMixin(BaseModel):
@@ -57,7 +72,7 @@ class ProfileOut(BaseModel):
     name: str
     gender: str
     spoken_languages: list[str]
-    communication_medium: CommunicationMedium
+    communication_mediums: list[str]
     address: str
     mobile: str
     email: str | None

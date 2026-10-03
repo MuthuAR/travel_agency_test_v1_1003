@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AdminRoute } from './components/auth/AdminRoute';
+import { SessionTimeoutManager } from './components/auth/SessionTimeoutManager';
 import { FullPageSpinner } from './components/layout/FullPageSpinner';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -18,6 +19,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 export default function App() {
   return (
     <Suspense fallback={<FullPageSpinner />}>
+      <SessionTimeoutManager />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 

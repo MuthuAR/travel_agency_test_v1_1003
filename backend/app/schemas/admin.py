@@ -4,7 +4,6 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from app.models.customer_profile import CommunicationMedium
 from app.schemas.enquiry import EnquiryOut
 
 
@@ -16,7 +15,7 @@ class CustomerOut(BaseModel):
     name: str
     gender: str
     spoken_languages: list[str]
-    communication_medium: CommunicationMedium
+    communication_mediums: list[str]
     address: str
     mobile: str
     email: str | None

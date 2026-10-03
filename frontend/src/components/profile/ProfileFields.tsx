@@ -20,6 +20,7 @@ import {
   MEDIUM_OPTIONS,
   isCommunicationMedium,
   isGender,
+  normalizeMediums,
 } from '../../lib/validation';
 import type { ProfileFieldValues } from '../../lib/validation';
 
@@ -94,29 +95,32 @@ export function ProfileFields({ values, errors, onChange, disabled = false }: Pr
         )}
       </chakra.fieldset>
 
-      <FormControl isInvalid={Boolean(errors.communication_medium)} isDisabled={disabled}>
-        <FormLabel fontSize="sm" fontWeight="medium" mb={1}>
-          Preferred communication medium
-        </FormLabel>
-        <Select
-          placeholder="Select medium"
-          rounded="xl"
-          bg="white"
-          value={values.communicationMedium}
-          onChange={(e) =>
+      <chakra.fieldset border="none" p={0} m={0} minW={0} disabled={disabled}>
+        <chakra.legend fontSize="sm" fontWeight="medium" mb={2}>
+          Preferred communication mediums
+        </chakra.legend>
+        <CheckboxGroup
+          value={values.communicationMediums}
+          onChange={(selected) =>
             onChange({
-              communicationMedium: isCommunicationMedium(e.target.value) ? e.target.value : '',
+              communicationMediums: normalizeMediums(selected.map(String).filter(isCommunicationMedium)),
             })
           }
         >
-          {MEDIUM_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-        <FormErrorMessage>{errors.communication_medium}</FormErrorMessage>
-      </FormControl>
+          <SimpleGrid columns={{ base: 2, sm: 3 }} spacing={2}>
+            {MEDIUM_OPTIONS.map((option) => (
+              <Checkbox key={option.value} value={option.value} isDisabled={disabled}>
+                {option.label}
+              </Checkbox>
+            ))}
+          </SimpleGrid>
+        </CheckboxGroup>
+        {errors.communication_mediums && (
+          <Text role="alert" color="red.500" fontSize="sm" mt={1}>
+            {errors.communication_mediums}
+          </Text>
+        )}
+      </chakra.fieldset>
 
       <FormControl isInvalid={Boolean(errors.address)} isDisabled={disabled}>
         <FormLabel fontSize="sm" fontWeight="medium" mb={1}>

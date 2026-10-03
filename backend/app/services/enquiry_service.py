@@ -35,19 +35,41 @@ def create_enquiry(db: Session, user: User, data: EnquiryCreate) -> Enquiry:
     return enquiry
 
 
+def get_enquiry_no(db: Session, user_id: int, enquiry_id: int) -> int:
+    """Return the 1-based position of an enquiry among the user's enquiries (by id)."""
+    return (
+        db.scalar(
+            select(func.count(Enquiry.id)).where(
+                Enquiry.user_id == user_id, Enquiry.id <= enquiry_id
+            )
+        )
+        or 0
+    )
+
+
 def list_user_enquiries(
     db: Session, user_id: int, page: int, page_size: int
-) -> tuple[list[Enquiry], int]:
-    """Return one page of the user's own enquiries (newest first) and the total count."""
+) -> tuple[list[tuple[Enquiry, int]], int]:
+    """Return one page of (enquiry, enquiry_no) pairs, newest first, and the total count."""
     total = db.scalar(select(func.count(Enquiry.id)).where(Enquiry.user_id == user_id)) or 0
-    stmt = (
-        select(Enquiry)
+    ranked = (
+        select(
+            Enquiry.id.label("id"),
+            func.row_number()
+            .over(partition_by=Enquiry.user_id, order_by=Enquiry.id)
+            .label("enquiry_no"),
+        )
         .where(Enquiry.user_id == user_id)
+        .subquery()
+    )
+    stmt = (
+        select(Enquiry, ranked.c.enquiry_no)
+        .join(ranked, ranked.c.id == Enquiry.id)
         .order_by(Enquiry.created_at.desc(), Enquiry.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    items = list(db.scalars(stmt).all())
+    items = [(row[0], int(row[1])) for row in db.execute(stmt).all()]
     return items, total
 
 

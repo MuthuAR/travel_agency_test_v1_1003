@@ -68,7 +68,7 @@ def test_admin_lists_all_enquiries_with_customer_details(
     assert customer["mobile"] == "9876543210"
     assert customer["email"] == "alice@example.com"
     assert customer["name"] == alice.profile.name
-    for key in ("gender", "spoken_languages", "communication_medium", "address"):
+    for key in ("gender", "spoken_languages", "communication_mediums", "address"):
         assert key in customer
     assert by_id[second.id]["customer"]["mobile"] == "9123456780"
 
@@ -203,6 +203,37 @@ def test_admin_get_single_enquiry(
     assert body["id"] == enquiry.id
     assert body["customer"]["user_id"] == user.id
     assert body["customer"]["mobile"] == "9876543210"
+
+
+def test_admin_enquiry_no_is_per_customer_and_stable_under_filters(
+    client: TestClient, db: Session, make_user: MakeUser, login_headers: LoginHeaders
+) -> None:
+    headers = _admin_headers(make_user, login_headers)
+    alice = make_user(mobile="9876543210", email="alice@example.com")
+    bob = make_user(mobile="9123456780", email="bob@example.com")
+    a1 = _insert_enquiry(db, alice)
+    b1 = _insert_enquiry(db, bob)
+    a2 = _insert_enquiry(db, alice, status=EnquiryStatus.confirmed)
+    b2 = _insert_enquiry(db, bob, status=EnquiryStatus.confirmed)
+
+    body = client.get(LIST_URL, headers=headers).json()
+    by_id = {item["id"]: item for item in body["items"]}
+
+    assert len({a1.id, a2.id, b1.id, b2.id}) == 4
+    assert [by_id[e.id]["enquiry_no"] for e in (a1, a2, b1, b2)] == [1, 2, 1, 2]
+
+    by_status = client.get(LIST_URL, params={"status": "confirmed"}, headers=headers).json()
+    assert {i["id"]: i["enquiry_no"] for i in by_status["items"]} == {a2.id: 2, b2.id: 2}
+
+    by_search = client.get(LIST_URL, params={"search": "987654"}, headers=headers).json()
+    assert {i["id"]: i["enquiry_no"] for i in by_search["items"]} == {a1.id: 1, a2.id: 2}
+
+    paged = client.get(LIST_URL, params={"page": 2, "page_size": 3}, headers=headers).json()
+    assert [(i["id"], i["enquiry_no"]) for i in paged["items"]] == [(a1.id, 1)]
+
+    for enquiry in (a1, a2, b1, b2):
+        detail = client.get(f"{LIST_URL}/{enquiry.id}", headers=headers).json()
+        assert detail["enquiry_no"] == by_id[enquiry.id]["enquiry_no"]
 
 
 def test_admin_get_missing_enquiry_is_404(

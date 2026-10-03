@@ -6,6 +6,8 @@ from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MIN_SECRET_KEY_LENGTH = 32
+# Extra minutes a customer refresh token outlives the idle timeout (covers clock skew/latency).
+CUSTOMER_REFRESH_GRACE_MINUTES = 2
 
 
 class Settings(BaseSettings):
@@ -19,10 +21,21 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    # Customer-only session policy (admins keep the two settings above).
+    CUSTOMER_IDLE_TIMEOUT_MINUTES: int = 15
+    CUSTOMER_SESSION_MAX_HOURS: int = 8
     CORS_ORIGINS: str = "http://localhost:5173"
     ADMIN_EMAIL: str = ""
     ADMIN_PASSWORD: str = ""
     ADMIN_MOBILE: str = "0000000000"
+
+    @field_validator("CUSTOMER_IDLE_TIMEOUT_MINUTES", "CUSTOMER_SESSION_MAX_HOURS")
+    @classmethod
+    def validate_positive(cls, value: int) -> int:
+        """Session limits must be at least 1."""
+        if value < 1:
+            raise ValueError("must be >= 1")
+        return value
 
     @field_validator("DATABASE_URL")
     @classmethod

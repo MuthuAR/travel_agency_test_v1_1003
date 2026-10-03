@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.exceptions import ConflictError, NotFoundError
-from app.models.customer_profile import CommunicationMedium, CustomerProfile
+from app.models.customer_profile import CustomerProfile
 from app.models.user import User
 from app.schemas.profile import ProfileOut, ProfileUpdate
 
@@ -24,7 +24,7 @@ def build_profile_out(user: User, profile: CustomerProfile) -> ProfileOut:
         name=profile.name,
         gender=profile.gender,
         spoken_languages=list(profile.spoken_languages),
-        communication_medium=profile.communication_medium,
+        communication_mediums=list(profile.communication_mediums),
         address=profile.address,
         mobile=user.mobile,
         email=user.email,
@@ -65,7 +65,7 @@ def update_profile(db: Session, user: User, data: ProfileUpdate) -> ProfileOut:
     profile.name = data.name
     profile.gender = data.gender
     profile.spoken_languages = list(data.spoken_languages)
-    profile.communication_medium = CommunicationMedium(data.communication_medium)
+    profile.communication_mediums = list(data.communication_mediums)
     profile.address = data.address
     try:
         db.commit()

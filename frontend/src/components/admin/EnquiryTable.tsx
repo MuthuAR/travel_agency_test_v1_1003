@@ -1,7 +1,7 @@
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Link, Table, TableContainer, Tbody, Td, Text, Th, Thead, Tr } from '@chakra-ui/react';
 import { StatusBadge } from '../enquiry/StatusBadge';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatEnquiryRef, formatGlobalEnquiryRef } from '../../lib/format';
 import type { AdminEnquiry } from '../../types';
 
 interface EnquiryTableProps {
@@ -22,7 +22,8 @@ export function EnquiryTable({ enquiries }: EnquiryTableProps) {
       <Table variant="simple" size="md">
         <Thead>
           <Tr>
-            <Th>ID</Th>
+            <Th>Global ENQ</Th>
+            <Th>Customer ENQ</Th>
             <Th>Customer</Th>
             <Th>Mobile</Th>
             <Th>Route</Th>
@@ -34,7 +35,8 @@ export function EnquiryTable({ enquiries }: EnquiryTableProps) {
         <Tbody>
           {enquiries.map((enquiry) => (
             <Tr key={enquiry.id} _hover={{ bg: 'brand.50' }}>
-              <Td>#{enquiry.id}</Td>
+              <Td>{formatGlobalEnquiryRef(enquiry.id)}</Td>
+              <Td>{enquiry.enquiry_no != null ? formatEnquiryRef(enquiry.enquiry_no) : '-'}</Td>
               <Td>{enquiry.customer?.name ?? 'Unknown'}</Td>
               <Td>{enquiry.customer?.mobile ?? '-'}</Td>
               <Td whiteSpace="normal" wordBreak="break-word">

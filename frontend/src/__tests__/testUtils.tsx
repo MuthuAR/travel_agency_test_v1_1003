@@ -41,7 +41,7 @@ export function makeCustomer(overrides: Partial<CustomerProfile> = {}): Customer
     name: 'Asha Kumar',
     gender: 'female',
     spoken_languages: ['English', 'Tamil'],
-    communication_medium: 'whatsapp',
+    communication_mediums: ['whatsapp', 'sms'],
     address: '12 Beach Road, Chennai',
     mobile: '9876543210',
     email: 'asha@example.com',

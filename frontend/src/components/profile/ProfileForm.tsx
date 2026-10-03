@@ -41,7 +41,7 @@ function toFieldValues(profile: CustomerProfile): ProfileFieldValues {
     gender: profile.gender,
     languages,
     otherLanguages,
-    communicationMedium: profile.communication_medium,
+    communicationMediums: profile.communication_mediums,
     address: profile.address,
   };
 }
@@ -106,7 +106,7 @@ export function ProfileForm() {
     if (emailError) found.email = emailError;
     setErrors(found);
     if (Object.keys(found).length > 0) return;
-    if (values.gender === '' || values.communicationMedium === '') return;
+    if (values.gender === '' || values.communicationMediums.length === 0) return;
 
     setSaving(true);
     try {
@@ -114,7 +114,7 @@ export function ProfileForm() {
         name: values.name.trim(),
         gender: values.gender,
         spoken_languages: buildLanguages(values.languages, values.otherLanguages),
-        communication_medium: values.communicationMedium,
+        communication_mediums: values.communicationMediums,
         address: values.address.trim(),
         mobile: normalizeMobile(contact.mobile),
         email: contact.email.trim() || null,

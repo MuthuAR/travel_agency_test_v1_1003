@@ -1,5 +1,6 @@
 import { Box, SimpleGrid, Text } from '@chakra-ui/react';
 import { GlassCard } from '../ui/GlassCard';
+import { formatMediums } from '../../lib/validation';
 import type { CustomerProfile } from '../../types';
 
 interface FieldProps {
@@ -37,7 +38,7 @@ export function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
           <Field label="Mobile" value={customer.mobile} />
           <Field label="Email" value={customer.email ?? '-'} />
           <Field label="Spoken languages" value={customer.spoken_languages.join(', ') || '-'} />
-          <Field label="Preferred communication" value={customer.communication_medium} />
+          <Field label="Preferred communication" value={formatMediums(customer.communication_mediums) || '-'} />
           <Field label="Address" value={customer.address} />
         </SimpleGrid>
       ) : (

@@ -40,6 +40,8 @@ class EnquiryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    # 1-based position among the owner's enquiries (ordered by id); None where not computed.
+    enquiry_no: int | None = None
     user_id: int
     start_date: date
     end_date: date

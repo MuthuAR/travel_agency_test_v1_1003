@@ -32,7 +32,7 @@ def register_payload(**overrides: Any) -> dict[str, Any]:
         "name": "Jane Doe",
         "gender": "female",
         "spoken_languages": ["English", "Tamil"],
-        "communication_medium": "whatsapp",
+        "communication_mediums": ["whatsapp"],
         "address": "12 Main Street, Chennai",
     }
     payload.update(overrides)
@@ -61,7 +61,7 @@ def test_register_success(client: TestClient, db: Session) -> None:
     assert "hashed_password" not in body
     assert body["profile"]["name"] == "Jane Doe"
     assert body["profile"]["spoken_languages"] == ["English", "Tamil"]
-    assert body["profile"]["communication_medium"] == "whatsapp"
+    assert body["profile"]["communication_mediums"] == ["whatsapp"]
     assert body["profile"]["mobile"] == "9876543210"
 
     user = db.execute(select(User).where(User.mobile == "9876543210")).scalar_one()
@@ -115,7 +115,10 @@ def test_register_validation_errors(client: TestClient) -> None:
         register_payload(name="x" * 101),
         register_payload(address="abc"),
         register_payload(gender="unknown"),
-        register_payload(communication_medium="pigeon"),
+        register_payload(communication_mediums=["pigeon"]),
+        register_payload(communication_mediums=[]),
+        register_payload(communication_mediums="email"),
+        register_payload(communication_mediums=["sms", "email", "whatsapp", "sms"]),
         register_payload(spoken_languages=[]),
         register_payload(spoken_languages=["x" * 51]),
         register_payload(spoken_languages=["English"] * 11),
@@ -359,3 +362,31 @@ def test_require_admin_allows_admin(
 
 def test_require_admin_without_token(client: TestClient) -> None:
     assert client.get("/__test__/admin-only").status_code == 401
+
+
+def test_register_with_several_mediums_dedupes_in_order(client: TestClient, db: Session) -> None:
+    response = client.post(
+        f"{API}/register",
+        json=register_payload(communication_mediums=["email", "sms", "email", "whatsapp"]),
+    )
+    assert response.status_code == 201
+    assert response.json()["profile"]["communication_mediums"] == ["email", "sms", "whatsapp"]
+
+    profile = db.execute(select(CustomerProfile)).scalar_one()
+    assert list(profile.communication_mediums) == ["email", "sms", "whatsapp"]
+
+
+def test_register_collapses_duplicate_mediums(client: TestClient) -> None:
+    response = client.post(
+        f"{API}/register", json=register_payload(communication_mediums=["sms", "sms"])
+    )
+    assert response.status_code == 201
+    assert response.json()["profile"]["communication_mediums"] == ["sms"]
+
+
+def test_register_rejects_empty_or_old_medium_field(client: TestClient) -> None:
+    empty = client.post(f"{API}/register", json=register_payload(communication_mediums=[]))
+    assert empty.status_code == 422
+    payload = register_payload()
+    payload["communication_medium"] = payload.pop("communication_mediums")[0]
+    assert client.post(f"{API}/register", json=payload).status_code == 422

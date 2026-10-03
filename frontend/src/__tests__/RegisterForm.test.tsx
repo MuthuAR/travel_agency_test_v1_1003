@@ -11,7 +11,7 @@ async function fillValidForm(user: UserEventInstance): Promise<void> {
   await user.type(screen.getByLabelText('Full name'), 'Jane Doe');
   await user.selectOptions(screen.getByLabelText('Gender'), 'female');
   await user.click(screen.getByLabelText('Tamil'));
-  await user.selectOptions(screen.getByLabelText('Preferred communication medium'), 'whatsapp');
+  await user.click(screen.getByLabelText('WhatsApp'));
   await user.type(screen.getByLabelText('Address'), '12 Beach Road');
   await user.type(screen.getByLabelText('Password'), 'secret123');
   await user.type(screen.getByLabelText('Confirm password'), 'secret123');
@@ -29,7 +29,7 @@ describe('RegisterForm', () => {
     expect(screen.getByText('Name is required')).toBeInTheDocument();
     expect(screen.getByText('Select a gender')).toBeInTheDocument();
     expect(screen.getByText('Select or enter at least one language')).toBeInTheDocument();
-    expect(screen.getByText('Select a communication medium')).toBeInTheDocument();
+    expect(screen.getByText('Select at least one communication medium')).toBeInTheDocument();
     expect(screen.getByText('Address is required')).toBeInTheDocument();
     expect(screen.getByText('Password must be at least 8 characters')).toBeInTheDocument();
     expect(auth.register).not.toHaveBeenCalled();
@@ -81,8 +81,47 @@ describe('RegisterForm', () => {
       name: 'Jane Doe',
       gender: 'female',
       spoken_languages: ['Tamil', 'Urdu'],
-      communication_medium: 'whatsapp',
+      communication_mediums: ['whatsapp'],
       address: '12 Beach Road',
     });
+  });
+
+  it('submits several communication mediums as an array', async () => {
+    const user = userEvent.setup();
+    const auth = makeAuth();
+    const onSuccess = vi.fn();
+    renderWithAuth(<RegisterForm onSuccess={onSuccess} />, { auth });
+
+    await fillValidForm(user);
+    await user.click(screen.getByLabelText('Email'));
+    await user.click(screen.getByLabelText('SMS'));
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(auth.register).toHaveBeenCalledWith(
+      expect.objectContaining({ communication_mediums: ['whatsapp', 'sms', 'email'] }),
+    );
+  });
+
+  it('blocks submit when no communication medium is selected', async () => {
+    const user = userEvent.setup();
+    const auth = makeAuth();
+    renderWithAuth(<RegisterForm onSuccess={vi.fn()} />, { auth });
+
+    await fillValidForm(user);
+    await user.click(screen.getByLabelText('WhatsApp'));
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByText('Select at least one communication medium')).toBeInTheDocument();
+    expect(auth.register).not.toHaveBeenCalled();
+  });
+
+  it('only offers English, Tamil and Hindi as language checkboxes', () => {
+    renderWithAuth(<RegisterForm onSuccess={vi.fn()} />);
+
+    expect(screen.getByLabelText('English')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tamil')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hindi')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Telugu')).not.toBeInTheDocument();
   });
 });

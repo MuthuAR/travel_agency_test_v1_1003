@@ -12,6 +12,7 @@ from app.models.enquiry import Enquiry, EnquiryStatus
 from app.models.user import User
 from app.schemas.admin import AdminEnquiryOut, CustomerOut
 from app.schemas.enquiry import EnquiryOut
+from app.services.enquiry_service import get_enquiry_no
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,10 @@ def _escape_like(term: str) -> str:
     )
 
 
-def to_admin_out(enquiry: Enquiry) -> AdminEnquiryOut:
+def to_admin_out(enquiry: Enquiry, enquiry_no: int) -> AdminEnquiryOut:
     """Map an enquiry (with user and profile loaded) to the admin view."""
     base = EnquiryOut.model_validate(enquiry).model_dump()
+    base["enquiry_no"] = enquiry_no
     user = enquiry.user
     profile = user.profile
     customer: CustomerOut | None = None
@@ -40,7 +42,7 @@ def to_admin_out(enquiry: Enquiry) -> AdminEnquiryOut:
             name=profile.name,
             gender=profile.gender,
             spoken_languages=list(profile.spoken_languages),
-            communication_medium=profile.communication_medium,
+            communication_mediums=list(profile.communication_mediums),
             address=profile.address,
             mobile=user.mobile,
             email=user.email,
@@ -60,6 +62,14 @@ def list_enquiries(
     start_date_to: date | None = None,
 ) -> tuple[list[AdminEnquiryOut], int]:
     """Return one filtered page of all enquiries (newest first) and the total count."""
+    # Rank over each customer's entire history, before any filtering or pagination.
+    ranked = select(
+        Enquiry.id.label("id"),
+        func.row_number()
+        .over(partition_by=Enquiry.user_id, order_by=Enquiry.id)
+        .label("enquiry_no"),
+    ).subquery()
+
     conditions: list[ColumnElement[bool]] = []
     if status is not None:
         conditions.append(Enquiry.status == status)
@@ -87,7 +97,8 @@ def list_enquiries(
     total = db.scalar(count_stmt) or 0
 
     stmt = (
-        select(Enquiry)
+        select(Enquiry, ranked.c.enquiry_no)
+        .join(ranked, ranked.c.id == Enquiry.id)
         .join(User, Enquiry.user_id == User.id)
         .outerjoin(CustomerProfile, CustomerProfile.user_id == User.id)
         .options(contains_eager(Enquiry.user).contains_eager(User.profile))
@@ -96,8 +107,8 @@ def list_enquiries(
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    rows = db.scalars(stmt).all()
-    return [to_admin_out(row) for row in rows], total
+    rows = db.execute(stmt).all()
+    return [to_admin_out(row[0], int(row[1])) for row in rows], total
 
 
 def get_enquiry(db: Session, enquiry_id: int) -> AdminEnquiryOut:
@@ -112,4 +123,5 @@ def get_enquiry(db: Session, enquiry_id: int) -> AdminEnquiryOut:
     enquiry = db.scalars(stmt).first()
     if enquiry is None:
         raise NotFoundError("Enquiry not found")
-    return to_admin_out(enquiry)
+    enquiry_no = get_enquiry_no(db, enquiry.user_id, enquiry.id)
+    return to_admin_out(enquiry, enquiry_no)
