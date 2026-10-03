@@ -23,6 +23,7 @@ from app.database import SessionLocal, engine  # noqa: E402
 from app.limiter import limiter  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
+    AccountType,
     Base,
     CustomerProfile,
     User,
@@ -80,6 +81,8 @@ def make_user(db: Session) -> Callable[..., User]:
         password: str = DEFAULT_PASSWORD,
         role: str = "customer",
         with_profile: bool = True,
+        account_type: str = "personal",
+        organization_name: str | None = None,
     ) -> User:
         user = User(
             mobile=mobile,
@@ -95,6 +98,8 @@ def make_user(db: Session) -> Callable[..., User]:
                 spoken_languages=["English"],
                 communication_mediums=["whatsapp"],
                 address="12 Test Street, Test City",
+                account_type=AccountType(account_type),
+                organization_name=organization_name,
             )
         db.add(user)
         db.commit()

@@ -73,7 +73,7 @@ export function FilterBar({ initial, onApply }: FilterBarProps) {
           <Input
             value={values.search}
             onChange={setText('search')}
-            placeholder="Name, mobile, location"
+            placeholder="Name, organization, mobile, location"
             bg="white"
             rounded="xl"
           />

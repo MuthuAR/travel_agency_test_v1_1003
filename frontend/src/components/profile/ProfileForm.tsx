@@ -6,8 +6,10 @@ import {
   AlertIcon,
   Button,
   Center,
+  Box,
   HStack,
   Spinner,
+  Text,
   VStack,
   chakra,
 } from '@chakra-ui/react';
@@ -24,6 +26,7 @@ import {
   splitLanguages,
   validateEmail,
   validateMobile,
+  validateOrganizationName,
   validateProfileFields,
 } from '../../lib/validation';
 import type { ProfileFieldValues } from '../../lib/validation';
@@ -51,6 +54,7 @@ export function ProfileForm() {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [values, setValues] = useState<ProfileFieldValues>(EMPTY_PROFILE_VALUES);
   const [contact, setContact] = useState<ContactValues>({ mobile: '', email: '' });
+  const [organizationName, setOrganizationName] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -63,6 +67,7 @@ export function ProfileForm() {
     setProfile(p);
     setValues(toFieldValues(p));
     setContact({ mobile: p.mobile, email: p.email ?? '' });
+    setOrganizationName(p.organization_name ?? '');
   }, []);
 
   useEffect(() => {
@@ -99,7 +104,12 @@ export function ProfileForm() {
     setFormError(null);
     setSaved(false);
 
+    const isOrganization = profile?.account_type === 'organization';
     const found: FieldErrors = validateProfileFields(values);
+    if (isOrganization) {
+      const organizationError = validateOrganizationName(organizationName);
+      if (organizationError) found.organization_name = organizationError;
+    }
     const mobileError = validateMobile(contact.mobile);
     if (mobileError) found.mobile = mobileError;
     const emailError = validateEmail(contact.email);
@@ -111,6 +121,7 @@ export function ProfileForm() {
     setSaving(true);
     try {
       const updated = await profileService.updateProfile({
+        ...(isOrganization ? { organization_name: organizationName.trim() } : {}),
         name: values.name.trim(),
         gender: values.gender,
         spoken_languages: buildLanguages(values.languages, values.otherLanguages),
@@ -148,6 +159,8 @@ export function ProfileForm() {
     );
   }
 
+  const isOrganizationAccount = profile?.account_type === 'organization';
+
   return (
     <chakra.form onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSubmit(e)} noValidate>
       <VStack spacing={4} align="stretch">
@@ -162,6 +175,22 @@ export function ProfileForm() {
             <AlertIcon />
             <AlertDescription>{formError}</AlertDescription>
           </Alert>
+        )}
+        <Box>
+          <Text fontSize="sm" fontWeight="medium" mb={1}>
+            Account type
+          </Text>
+          <Text data-testid="account-type-value">{isOrganizationAccount ? 'Organization' : 'Personal'}</Text>
+        </Box>
+        {isOrganizationAccount && (
+          <AnimatedInput
+            label="Organization name"
+            autoComplete="organization"
+            value={organizationName}
+            disabled={!isEditing}
+            onChange={(e) => setOrganizationName(e.target.value)}
+            error={errors.organization_name}
+          />
         )}
         <AnimatedInput
           label="Mobile number"
@@ -181,7 +210,13 @@ export function ProfileForm() {
           onChange={(e) => setContact((prev) => ({ ...prev, email: e.target.value }))}
           error={errors.email}
         />
-        <ProfileFields values={values} errors={errors} onChange={handleChange} disabled={!isEditing} />
+        <ProfileFields
+          values={values}
+          errors={errors}
+          onChange={handleChange}
+          disabled={!isEditing}
+          nameLabel={isOrganizationAccount ? 'Contact person name' : 'Full name'}
+        />
         {isEditing ? (
           <HStack spacing={3}>
             <GradientButton type="submit" disabled={saving}>

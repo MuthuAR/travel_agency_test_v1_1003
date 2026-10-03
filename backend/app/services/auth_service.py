@@ -16,6 +16,7 @@ from app.auth.jwt import (
 from app.auth.security import hash_password, verify_password
 from app.auth.session_policy import session_max_age
 from app.exceptions import ConflictError, UnauthorizedError
+from app.models import AccountType
 from app.models.customer_profile import CustomerProfile
 from app.models.refresh_token import RefreshToken
 from app.models.user import User, UserRole
@@ -54,6 +55,8 @@ def register_user(db: Session, data: RegisterRequest) -> RegisterResponse:
         spoken_languages=list(data.spoken_languages),
         communication_mediums=list(data.communication_mediums),
         address=data.address,
+        account_type=AccountType(data.account_type),
+        organization_name=data.organization_name,
     )
     user.profile = profile
     db.add(user)

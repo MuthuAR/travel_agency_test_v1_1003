@@ -390,3 +390,67 @@ def test_register_rejects_empty_or_old_medium_field(client: TestClient) -> None:
     payload = register_payload()
     payload["communication_medium"] = payload.pop("communication_mediums")[0]
     assert client.post(f"{API}/register", json=payload).status_code == 422
+
+
+# ---------- account type ----------
+
+
+def test_register_personal_defaults(client: TestClient) -> None:
+    response = client.post(f"{API}/register", json=register_payload())
+    assert response.status_code == 201
+    profile = response.json()["profile"]
+    assert profile["account_type"] == "personal"
+    assert profile["organization_name"] is None
+
+
+def test_register_personal_blank_organization_name_becomes_null(client: TestClient) -> None:
+    response = client.post(
+        f"{API}/register",
+        json=register_payload(account_type="personal", organization_name="   "),
+    )
+    assert response.status_code == 201
+    assert response.json()["profile"]["organization_name"] is None
+
+
+def test_register_organization(client: TestClient, db: Session) -> None:
+    response = client.post(
+        f"{API}/register",
+        json=register_payload(account_type="organization", organization_name="  Acme   Travels  "),
+    )
+    assert response.status_code == 201
+    profile = response.json()["profile"]
+    assert profile["account_type"] == "organization"
+    assert profile["organization_name"] == "Acme Travels"
+    assert profile["name"] == "Jane Doe"
+    stored = db.execute(select(CustomerProfile)).scalar_one()
+    assert stored.organization_name == "Acme Travels"
+
+
+def test_register_organization_requires_name(client: TestClient) -> None:
+    missing = client.post(f"{API}/register", json=register_payload(account_type="organization"))
+    blank = client.post(
+        f"{API}/register",
+        json=register_payload(account_type="organization", organization_name="  "),
+    )
+    short = client.post(
+        f"{API}/register",
+        json=register_payload(account_type="organization", organization_name="A"),
+    )
+    assert missing.status_code == 422
+    assert blank.status_code == 422
+    assert short.status_code == 422
+
+
+def test_register_personal_rejects_organization_name(client: TestClient) -> None:
+    response = client.post(
+        f"{API}/register",
+        json=register_payload(account_type="personal", organization_name="Acme"),
+    )
+    assert response.status_code == 422
+    omitted_type = client.post(f"{API}/register", json=register_payload(organization_name="Acme"))
+    assert omitted_type.status_code == 422
+
+
+def test_register_invalid_account_type(client: TestClient) -> None:
+    response = client.post(f"{API}/register", json=register_payload(account_type="company"))
+    assert response.status_code == 422

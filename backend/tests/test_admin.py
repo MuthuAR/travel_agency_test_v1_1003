@@ -269,3 +269,52 @@ def test_admin_has_no_write_endpoints(
     response = getattr(client, method)(LIST_URL, headers=headers)
 
     assert response.status_code in (404, 405)
+
+
+def test_admin_shows_account_type_and_organization_name(
+    client: TestClient, db: Session, make_user: MakeUser, login_headers: LoginHeaders
+) -> None:
+    headers = _admin_headers(make_user, login_headers)
+    personal = make_user(mobile="9876543210", email="alice@example.com")
+    org = make_user(
+        mobile="9123456780",
+        email="org@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    personal_enquiry = _insert_enquiry(db, personal)
+    org_enquiry = _insert_enquiry(db, org)
+
+    body = client.get(LIST_URL, headers=headers).json()
+    by_id = {item["id"]: item["customer"] for item in body["items"]}
+    assert by_id[personal_enquiry.id]["account_type"] == "personal"
+    assert by_id[personal_enquiry.id]["organization_name"] is None
+    assert by_id[org_enquiry.id]["account_type"] == "organization"
+    assert by_id[org_enquiry.id]["organization_name"] == "Acme Travels"
+
+    detail = client.get(f"{LIST_URL}/{org_enquiry.id}", headers=headers).json()
+    assert detail["customer"]["account_type"] == "organization"
+    assert detail["customer"]["organization_name"] == "Acme Travels"
+    detail = client.get(f"{LIST_URL}/{personal_enquiry.id}", headers=headers).json()
+    assert detail["customer"]["account_type"] == "personal"
+    assert detail["customer"]["organization_name"] is None
+
+
+def test_admin_search_by_organization_name(
+    client: TestClient, db: Session, make_user: MakeUser, login_headers: LoginHeaders
+) -> None:
+    headers = _admin_headers(make_user, login_headers)
+    personal = make_user(mobile="9876543210", email="alice@example.com")
+    org = make_user(
+        mobile="9123456780",
+        email="org@example.com",
+        account_type="organization",
+        organization_name="Zenith Holidays",
+    )
+    _insert_enquiry(db, personal)
+    org_enquiry = _insert_enquiry(db, org)
+
+    body = client.get(LIST_URL, params={"search": "NITH holi"}, headers=headers).json()
+
+    assert body["total"] == 1
+    assert [item["id"] for item in body["items"]] == [org_enquiry.id]

@@ -38,6 +38,8 @@ export function makeCustomer(overrides: Partial<CustomerProfile> = {}): Customer
   return {
     id: 1,
     user_id: 1,
+    account_type: 'personal',
+    organization_name: null,
     name: 'Asha Kumar',
     gender: 'female',
     spoken_languages: ['English', 'Tamil'],

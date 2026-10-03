@@ -29,14 +29,22 @@ interface ProfileFieldsProps {
   errors: FieldErrors;
   onChange: (patch: Partial<ProfileFieldValues>) => void;
   disabled?: boolean;
+  /** Label of the person-name field; "Contact person name" for organisation accounts. */
+  nameLabel?: string;
 }
 
 /** Name, gender, languages, communication medium and address, shared by register and profile. */
-export function ProfileFields({ values, errors, onChange, disabled = false }: ProfileFieldsProps) {
+export function ProfileFields({
+  values,
+  errors,
+  onChange,
+  disabled = false,
+  nameLabel = 'Full name',
+}: ProfileFieldsProps) {
   return (
     <VStack spacing={4} align="stretch">
       <AnimatedInput
-        label="Full name"
+        label={nameLabel}
         autoComplete="name"
         value={values.name}
         disabled={disabled}

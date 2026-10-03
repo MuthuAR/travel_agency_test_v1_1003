@@ -1,4 +1,4 @@
-import type { CommunicationMedium, Gender } from '../types';
+import type { AccountType, CommunicationMedium, Gender } from '../types';
 import type { FieldErrors } from './errors';
 
 const MOBILE_REGEX = /^\+?[0-9]{10,15}$/;
@@ -21,6 +21,25 @@ export const MEDIUM_OPTIONS: ReadonlyArray<{ value: CommunicationMedium; label: 
   { value: 'sms', label: 'SMS' },
   { value: 'email', label: 'Email' },
 ];
+
+export const ACCOUNT_TYPE_OPTIONS: ReadonlyArray<{ value: AccountType; label: string }> = [
+  { value: 'personal', label: 'Personal' },
+  { value: 'organization', label: 'Organization' },
+];
+
+export function isAccountType(value: string): value is AccountType {
+  return value === 'personal' || value === 'organization';
+}
+
+/** Organisation name: required, 2-200 characters after trimming. */
+export function validateOrganizationName(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Organization name is required';
+  if (trimmed.length < 2 || trimmed.length > 200) {
+    return 'Organization name must be 2-200 characters';
+  }
+  return undefined;
+}
 
 export function isGender(value: string): value is Gender {
   return value === 'male' || value === 'female' || value === 'other';

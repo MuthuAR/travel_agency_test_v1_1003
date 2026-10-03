@@ -6,7 +6,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.exceptions import ConflictError, NotFoundError
+from app.exceptions import ConflictError, NotFoundError, UnprocessableError
+from app.models import AccountType
 from app.models.customer_profile import CustomerProfile
 from app.models.user import User
 from app.schemas.profile import ProfileOut, ProfileUpdate
@@ -26,6 +27,8 @@ def build_profile_out(user: User, profile: CustomerProfile) -> ProfileOut:
         spoken_languages=list(profile.spoken_languages),
         communication_mediums=list(profile.communication_mediums),
         address=profile.address,
+        account_type=AccountType(profile.account_type).value,
+        organization_name=profile.organization_name,
         mobile=user.mobile,
         email=user.email,
         created_at=profile.created_at,
@@ -51,6 +54,12 @@ def update_profile(db: Session, user: User, data: ProfileUpdate) -> ProfileOut:
     """Update profile and contact details in one transaction."""
     profile = _load_profile(db, user)
 
+    is_organization = AccountType(profile.account_type) == AccountType.organization
+    if is_organization and data.organization_name is None:
+        raise UnprocessableError("organization_name is required for organization accounts")
+    if not is_organization and data.organization_name is not None:
+        raise UnprocessableError("organization_name is only allowed for organization accounts")
+
     conditions = [User.mobile == data.mobile]
     if data.email is not None:
         conditions.append(User.email == data.email)
@@ -67,6 +76,7 @@ def update_profile(db: Session, user: User, data: ProfileUpdate) -> ProfileOut:
     profile.spoken_languages = list(data.spoken_languages)
     profile.communication_mediums = list(data.communication_mediums)
     profile.address = data.address
+    profile.organization_name = data.organization_name
     try:
         db.commit()
     except IntegrityError:

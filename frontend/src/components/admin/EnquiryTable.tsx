@@ -2,7 +2,13 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Box, Link, Table, TableContainer, Tbody, Td, Text, Th, Thead, Tr } from '@chakra-ui/react';
 import { StatusBadge } from '../enquiry/StatusBadge';
 import { formatDate, formatEnquiryRef, formatGlobalEnquiryRef } from '../../lib/format';
-import type { AdminEnquiry } from '../../types';
+import type { AdminEnquiry, CustomerProfile } from '../../types';
+
+function formatAccount(customer: CustomerProfile | null): string {
+  if (!customer) return '-';
+  if (customer.account_type === 'organization') return customer.organization_name ?? 'Organization';
+  return 'Personal';
+}
 
 interface EnquiryTableProps {
   enquiries: AdminEnquiry[];
@@ -25,6 +31,7 @@ export function EnquiryTable({ enquiries }: EnquiryTableProps) {
             <Th>Global ENQ</Th>
             <Th>Customer ENQ</Th>
             <Th>Customer</Th>
+            <Th>Account</Th>
             <Th>Mobile</Th>
             <Th>Route</Th>
             <Th>Dates</Th>
@@ -38,6 +45,7 @@ export function EnquiryTable({ enquiries }: EnquiryTableProps) {
               <Td>{formatGlobalEnquiryRef(enquiry.id)}</Td>
               <Td>{enquiry.enquiry_no != null ? formatEnquiryRef(enquiry.enquiry_no) : '-'}</Td>
               <Td>{enquiry.customer?.name ?? 'Unknown'}</Td>
+              <Td>{formatAccount(enquiry.customer)}</Td>
               <Td>{enquiry.customer?.mobile ?? '-'}</Td>
               <Td whiteSpace="normal" wordBreak="break-word">
                 {enquiry.pickup_location} to {enquiry.drop_location}

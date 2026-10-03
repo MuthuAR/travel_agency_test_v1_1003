@@ -19,6 +19,28 @@ CommunicationMediumValue = Literal["whatsapp", "sms", "email"]
 Language = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
 
+AccountTypeValue = Literal["personal", "organization"]
+
+ORG_NAME_MIN = 2
+ORG_NAME_MAX = 200
+
+
+def normalize_organization_name(value: object) -> object:
+    """Trim and collapse whitespace; blank becomes None. Length is checked when present."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("organization_name must be a string")
+    cleaned = " ".join(value.split())
+    if not cleaned:
+        return None
+    if not ORG_NAME_MIN <= len(cleaned) <= ORG_NAME_MAX:
+        raise ValueError(
+            f"organization_name must be {ORG_NAME_MIN} to {ORG_NAME_MAX} characters"
+        )
+    return cleaned
+
+
 class ProfileBase(BaseModel):
     """Fields stored on CustomerProfile, shared by register and profile update."""
 
@@ -30,7 +52,12 @@ class ProfileBase(BaseModel):
     spoken_languages: list[Language] = Field(min_length=1, max_length=10)
     communication_mediums: list[CommunicationMediumValue] = Field(min_length=1, max_length=3)
     address: Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=500)]
+    organization_name: str | None = None
 
+    @field_validator("organization_name", mode="before")
+    @classmethod
+    def _normalize_organization_name(cls, value: object) -> object:
+        return normalize_organization_name(value)
 
     @field_validator("communication_mediums")
     @classmethod
@@ -74,6 +101,8 @@ class ProfileOut(BaseModel):
     spoken_languages: list[str]
     communication_mediums: list[str]
     address: str
+    account_type: AccountTypeValue
+    organization_name: str | None
     mobile: str
     email: str | None
     created_at: datetime

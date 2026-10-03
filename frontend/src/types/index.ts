@@ -21,10 +21,16 @@ export interface User {
   updated_at?: string;
 }
 
+export type AccountType = 'personal' | 'organization';
+
 /** Profile as returned by the API (mobile/email merged in from User). */
 export interface CustomerProfile {
   id: number;
   user_id: number;
+  account_type: AccountType;
+  /** Organisation name for organisation accounts; null for personal accounts. */
+  organization_name: string | null;
+  /** Full name for personal accounts; contact person for organisation accounts. */
   name: string;
   gender: Gender;
   spoken_languages: string[];
@@ -101,6 +107,9 @@ export interface LoginCredentials {
 }
 
 export interface RegisterPayload {
+  account_type: AccountType;
+  /** Required for organisation accounts; omitted for personal accounts. */
+  organization_name?: string;
   mobile: string;
   email?: string;
   password: string;
@@ -113,6 +122,8 @@ export interface RegisterPayload {
 
 /** Body for PUT /profile. */
 export interface ProfileUpdatePayload {
+  /** Only for organisation accounts; account_type itself can never be changed. */
+  organization_name?: string;
   name: string;
   gender: Gender;
   spoken_languages: string[];

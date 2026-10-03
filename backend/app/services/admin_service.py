@@ -7,6 +7,7 @@ from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session, contains_eager
 
 from app.exceptions import NotFoundError
+from app.models import AccountType
 from app.models.customer_profile import CustomerProfile
 from app.models.enquiry import Enquiry, EnquiryStatus
 from app.models.user import User
@@ -44,6 +45,8 @@ def to_admin_out(enquiry: Enquiry, enquiry_no: int) -> AdminEnquiryOut:
             spoken_languages=list(profile.spoken_languages),
             communication_mediums=list(profile.communication_mediums),
             address=profile.address,
+            account_type=AccountType(profile.account_type).value,
+            organization_name=profile.organization_name,
             mobile=user.mobile,
             email=user.email,
             created_at=profile.created_at,
@@ -82,6 +85,7 @@ def list_enquiries(
         conditions.append(
             or_(
                 CustomerProfile.name.ilike(pattern, escape=_LIKE_ESCAPE),
+                CustomerProfile.organization_name.ilike(pattern, escape=_LIKE_ESCAPE),
                 User.mobile.ilike(pattern, escape=_LIKE_ESCAPE),
                 User.email.ilike(pattern, escape=_LIKE_ESCAPE),
             )

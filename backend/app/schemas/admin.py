@@ -17,6 +17,8 @@ class CustomerOut(BaseModel):
     spoken_languages: list[str]
     communication_mediums: list[str]
     address: str
+    account_type: str
+    organization_name: str | None
     mobile: str
     email: str | None
     created_at: datetime

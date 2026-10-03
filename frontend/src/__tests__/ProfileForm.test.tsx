@@ -16,6 +16,8 @@ vi.mock('../services/profileService', () => ({
 const baseProfile: CustomerProfile = {
   id: 1,
   user_id: 1,
+  account_type: 'personal',
+  organization_name: null,
   name: 'Jane Doe',
   gender: 'female',
   spoken_languages: ['English', 'Urdu'],
@@ -125,6 +127,48 @@ describe('ProfileForm', () => {
 
     expect(await screen.findByText('Name is required')).toBeInTheDocument();
     expect(updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('shows a personal account read-only without an organization field', async () => {
+    renderWithAuth(<ProfileForm />);
+
+    expect(await screen.findByTestId('account-type-value')).toHaveTextContent('Personal');
+    expect(screen.queryByLabelText('Organization name')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Full name')).toBeInTheDocument();
+  });
+
+  it('lets organization accounts edit the organization name and never sends account_type', async () => {
+    const user = userEvent.setup();
+    const orgProfile: CustomerProfile = {
+      ...baseProfile,
+      account_type: 'organization',
+      organization_name: 'Acme Travels',
+    };
+    getProfile.mockResolvedValue(orgProfile);
+    updateProfile.mockResolvedValue({ ...orgProfile, organization_name: 'Acme Holidays' });
+    renderWithAuth(<ProfileForm />);
+
+    expect(await screen.findByTestId('account-type-value')).toHaveTextContent('Organization');
+    expect(screen.getByLabelText('Organization name')).toBeDisabled();
+    expect(screen.getByLabelText('Contact person name')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }));
+    const orgInput = screen.getByLabelText('Organization name');
+    await user.clear(orgInput);
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Organization name is required')).toBeInTheDocument();
+    expect(updateProfile).not.toHaveBeenCalled();
+
+    await user.type(orgInput, 'Acme Holidays');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+    expect(updateProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ organization_name: 'Acme Holidays', name: 'Jane Doe' }),
+    );
+    expect(updateProfile).not.toHaveBeenCalledWith(
+      expect.objectContaining({ account_type: expect.anything() }),
+    );
   });
 
   it('discards changes on cancel', async () => {

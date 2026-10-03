@@ -33,7 +33,17 @@ export function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
       </Text>
       {customer ? (
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-          <Field label="Name" value={customer.name} />
+          <Field
+            label="Account type"
+            value={customer.account_type === 'organization' ? 'Organization' : 'Personal'}
+          />
+          {customer.account_type === 'organization' && (
+            <Field label="Organization name" value={customer.organization_name ?? '-'} />
+          )}
+          <Field
+            label={customer.account_type === 'organization' ? 'Contact person' : 'Name'}
+            value={customer.name}
+          />
           <Field label="Gender" value={customer.gender} />
           <Field label="Mobile" value={customer.mobile} />
           <Field label="Email" value={customer.email ?? '-'} />

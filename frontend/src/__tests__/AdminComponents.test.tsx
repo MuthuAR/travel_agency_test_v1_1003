@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { EnquiryTable } from '../components/admin/EnquiryTable';
 import { EMPTY_FILTERS, FilterBar } from '../components/admin/FilterBar';
 import { Pagination } from '../components/admin/Pagination';
-import { makeAdminEnquiry, renderWithProviders } from './testUtils';
+import { makeAdminEnquiry, makeCustomer, renderWithProviders } from './testUtils';
 
 describe('FilterBar', () => {
   it('applies the selected filters', async () => {
@@ -83,6 +83,24 @@ describe('EnquiryTable', () => {
       'href',
       '/admin/enquiries/5',
     );
+  });
+
+  it('shows an Account column with the organization name or Personal', () => {
+    renderWithProviders(
+      <EnquiryTable
+        enquiries={[
+          makeAdminEnquiry({ id: 1 }),
+          makeAdminEnquiry({
+            id: 2,
+            customer: makeCustomer({ account_type: 'organization', organization_name: 'Acme Travels' }),
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Account' })).toBeInTheDocument();
+    expect(screen.getByText('Personal')).toBeInTheDocument();
+    expect(screen.getByText('Acme Travels')).toBeInTheDocument();
   });
 
   it('shows both the global and customer enquiry references', () => {

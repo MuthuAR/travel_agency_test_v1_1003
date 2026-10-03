@@ -2,11 +2,18 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from app.auth.session_policy import idle_timeout_minutes_for_role
 from app.models.user import UserRole
-from app.schemas.profile import ContactMixin, ProfileBase, ProfileOut
+from app.schemas.profile import AccountTypeValue, ContactMixin, ProfileBase, ProfileOut
 from app.utils.validators import validate_password_strength
 
 
@@ -14,6 +21,15 @@ class RegisterRequest(ProfileBase, ContactMixin):
     """Body of POST /auth/register."""
 
     password: str
+    account_type: AccountTypeValue = "personal"
+
+    @model_validator(mode="after")
+    def _check_organization_name(self) -> "RegisterRequest":
+        if self.account_type == "organization" and self.organization_name is None:
+            raise ValueError("organization_name is required for organization accounts")
+        if self.account_type == "personal" and self.organization_name is not None:
+            raise ValueError("organization_name is only allowed for organization accounts")
+        return self
 
     @field_validator("password")
     @classmethod

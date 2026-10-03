@@ -39,6 +39,14 @@ class ForbiddenError(AppError):
     default_message = "Access denied"
 
 
+class UnprocessableError(AppError):
+    """Request is well-formed but violates a rule that depends on stored state."""
+
+    status_code = 422
+    code = "UNPROCESSABLE"
+    default_message = "Request cannot be processed"
+
+
 class ValidationAppError(AppError):
     status_code = 400
     code = "VALIDATION_ERROR"

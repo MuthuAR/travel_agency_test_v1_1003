@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import axios from 'axios';
-import { Alert, AlertDescription, AlertIcon, VStack, chakra } from '@chakra-ui/react';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  HStack,
+  Radio,
+  RadioGroup,
+  VStack,
+  chakra,
+} from '@chakra-ui/react';
 import { AnimatedInput } from '../ui/AnimatedInput';
 import { GradientButton } from '../ui/GradientButton';
 import { ProfileFields } from '../profile/ProfileFields';
@@ -9,16 +18,19 @@ import { useAuth } from '../../hooks/useAuth';
 import { getErrorMessage, getFieldErrors } from '../../lib/errors';
 import type { FieldErrors } from '../../lib/errors';
 import {
+  ACCOUNT_TYPE_OPTIONS,
   EMPTY_PROFILE_VALUES,
   buildLanguages,
+  isAccountType,
   normalizeMobile,
   validateEmail,
   validateMobile,
+  validateOrganizationName,
   validatePassword,
   validateProfileFields,
 } from '../../lib/validation';
 import type { ProfileFieldValues } from '../../lib/validation';
-import type { User } from '../../types';
+import type { AccountType, User } from '../../types';
 
 interface RegisterFormProps {
   onSuccess: (user: User) => void;
@@ -29,6 +41,8 @@ export const ACCOUNT_EXISTS_MESSAGE =
 
 export function RegisterForm({ onSuccess }: RegisterFormProps) {
   const { register } = useAuth();
+  const [accountType, setAccountType] = useState<AccountType>('personal');
+  const [organizationName, setOrganizationName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,11 +56,28 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     setProfile((prev) => ({ ...prev, ...patch }));
   };
 
+  const handleAccountTypeChange = (value: string): void => {
+    if (!isAccountType(value)) return;
+    setAccountType(value);
+    if (value === 'personal') {
+      setOrganizationName('');
+      setErrors((prev) => {
+        const next: FieldErrors = { ...prev };
+        delete next.organization_name;
+        return next;
+      });
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setFormError(null);
 
     const found: FieldErrors = validateProfileFields(profile);
+    if (accountType === 'organization') {
+      const organizationError = validateOrganizationName(organizationName);
+      if (organizationError) found.organization_name = organizationError;
+    }
     const mobileError = validateMobile(mobile);
     if (mobileError) found.mobile = mobileError;
     const emailError = validateEmail(email);
@@ -64,6 +95,8 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     setSubmitting(true);
     try {
       const user = await register({
+        account_type: accountType,
+        ...(accountType === 'organization' ? { organization_name: organizationName.trim() } : {}),
         mobile: normalizeMobile(mobile),
         ...(trimmedEmail ? { email: trimmedEmail } : {}),
         password,
@@ -96,6 +129,29 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
             <AlertDescription>{formError}</AlertDescription>
           </Alert>
         )}
+        <chakra.fieldset border="none" p={0} m={0} minW={0}>
+          <chakra.legend fontSize="sm" fontWeight="medium" mb={2}>
+            Account type
+          </chakra.legend>
+          <RadioGroup value={accountType} onChange={handleAccountTypeChange}>
+            <HStack spacing={6}>
+              {ACCOUNT_TYPE_OPTIONS.map((option) => (
+                <Radio key={option.value} value={option.value}>
+                  {option.label}
+                </Radio>
+              ))}
+            </HStack>
+          </RadioGroup>
+        </chakra.fieldset>
+        {accountType === 'organization' && (
+          <AnimatedInput
+            label="Organization name"
+            autoComplete="organization"
+            value={organizationName}
+            onChange={(e) => setOrganizationName(e.target.value)}
+            error={errors.organization_name}
+          />
+        )}
         <AnimatedInput
           label="Mobile number"
           type="tel"
@@ -112,7 +168,12 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
           onChange={(e) => setEmail(e.target.value)}
           error={errors.email}
         />
-        <ProfileFields values={profile} errors={errors} onChange={handleProfileChange} />
+        <ProfileFields
+          values={profile}
+          errors={errors}
+          onChange={handleProfileChange}
+          nameLabel={accountType === 'organization' ? 'Contact person name' : 'Full name'}
+        />
         <AnimatedInput
           label="Password"
           type="password"

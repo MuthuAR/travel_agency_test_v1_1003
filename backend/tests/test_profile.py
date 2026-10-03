@@ -190,3 +190,89 @@ def test_update_profile_rejects_bad_mediums(
             URL, headers=headers, json=update_payload(communication_mediums=value)
         )
         assert response.status_code == 422, value
+
+
+def test_profile_shows_account_type(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(mobile="9876543210", email="p@example.com")
+    make_user(
+        mobile="9123456780",
+        email="o@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    personal = client.get(URL, headers=login_headers("p@example.com")).json()
+    org = client.get(URL, headers=login_headers("o@example.com")).json()
+    assert personal["account_type"] == "personal"
+    assert personal["organization_name"] is None
+    assert org["account_type"] == "organization"
+    assert org["organization_name"] == "Acme Travels"
+
+
+def test_organization_can_rename(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(
+        mobile="9876543210",
+        email="o@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    response = client.put(
+        URL,
+        json=update_payload(organization_name="  Globex   Tours "),
+        headers=login_headers("o@example.com"),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["organization_name"] == "Globex Tours"
+    assert body["account_type"] == "organization"
+
+
+def test_account_type_not_editable(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(
+        mobile="9876543210",
+        email="o@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    response = client.put(
+        URL,
+        json=update_payload(account_type="personal", organization_name="Acme Travels"),
+        headers=login_headers("o@example.com"),
+    )
+    assert response.status_code == 422
+
+
+def test_organization_rejects_blank_or_missing_name(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(
+        mobile="9876543210",
+        email="o@example.com",
+        account_type="organization",
+        organization_name="Acme Travels",
+    )
+    headers = login_headers("o@example.com")
+    blank = client.put(URL, json=update_payload(organization_name="   "), headers=headers)
+    null = client.put(URL, json=update_payload(organization_name=None), headers=headers)
+    missing = client.put(URL, json=update_payload(), headers=headers)
+    assert blank.status_code == 422
+    assert null.status_code == 422
+    assert missing.status_code == 422
+    assert client.get(URL, headers=headers).json()["organization_name"] == "Acme Travels"
+
+
+def test_personal_cannot_set_organization_name(
+    client: TestClient, make_user: Callable[..., User], login_headers: Any
+) -> None:
+    make_user(mobile="9876543210", email="p@example.com")
+    headers = login_headers("p@example.com")
+    response = client.put(URL, json=update_payload(organization_name="Acme"), headers=headers)
+    assert response.status_code == 422
+    blank = client.put(URL, json=update_payload(organization_name=" "), headers=headers)
+    assert blank.status_code == 200
+    assert blank.json()["organization_name"] is None

@@ -76,6 +76,7 @@ describe('RegisterForm', () => {
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
     expect(auth.register).toHaveBeenCalledWith({
+      account_type: 'personal',
       mobile: '9876543210',
       password: 'secret123',
       name: 'Jane Doe',
@@ -114,6 +115,82 @@ describe('RegisterForm', () => {
 
     expect(await screen.findByText('Select at least one communication medium')).toBeInTheDocument();
     expect(auth.register).not.toHaveBeenCalled();
+  });
+
+  it('defaults to a personal account without an organization field', async () => {
+    const user = userEvent.setup();
+    const auth = makeAuth();
+    const onSuccess = vi.fn();
+    renderWithAuth(<RegisterForm onSuccess={onSuccess} />, { auth });
+
+    expect(screen.getByLabelText('Personal')).toBeChecked();
+    expect(screen.queryByLabelText('Organization name')).not.toBeInTheDocument();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(auth.register).toHaveBeenCalledWith(expect.objectContaining({ account_type: 'personal' }));
+    expect(auth.register).not.toHaveBeenCalledWith(
+      expect.objectContaining({ organization_name: expect.anything() }),
+    );
+  });
+
+  it('requires an organization name for organization accounts', async () => {
+    const user = userEvent.setup();
+    const auth = makeAuth();
+    renderWithAuth(<RegisterForm onSuccess={vi.fn()} />, { auth });
+
+    await user.click(screen.getByLabelText('Organization'));
+    expect(screen.getByLabelText('Contact person name')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByText('Organization name is required')).toBeInTheDocument();
+    expect(auth.register).not.toHaveBeenCalled();
+  });
+
+  it('submits account_type and a trimmed organization_name for organization accounts', async () => {
+    const user = userEvent.setup();
+    const auth = makeAuth();
+    const onSuccess = vi.fn();
+    renderWithAuth(<RegisterForm onSuccess={onSuccess} />, { auth });
+
+    await user.click(screen.getByLabelText('Organization'));
+    await user.type(screen.getByLabelText('Organization name'), '  Acme Travels  ');
+    await user.type(screen.getByLabelText('Mobile number'), '98765 43210');
+    await user.type(screen.getByLabelText('Contact person name'), 'Jane Doe');
+    await user.selectOptions(screen.getByLabelText('Gender'), 'female');
+    await user.click(screen.getByLabelText('Tamil'));
+    await user.click(screen.getByLabelText('WhatsApp'));
+    await user.type(screen.getByLabelText('Address'), '12 Beach Road');
+    await user.type(screen.getByLabelText('Password'), 'secret123');
+    await user.type(screen.getByLabelText('Confirm password'), 'secret123');
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(auth.register).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_type: 'organization',
+        organization_name: 'Acme Travels',
+        name: 'Jane Doe',
+      }),
+    );
+  });
+
+  it('hides and clears the organization name when switching back to personal', async () => {
+    const user = userEvent.setup();
+    const auth = makeAuth();
+    const onSuccess = vi.fn();
+    renderWithAuth(<RegisterForm onSuccess={onSuccess} />, { auth });
+
+    await user.click(screen.getByLabelText('Organization'));
+    await user.type(screen.getByLabelText('Organization name'), 'Acme Travels');
+    await user.click(screen.getByLabelText('Personal'));
+    expect(screen.queryByLabelText('Organization name')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Full name')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('Organization'));
+    expect(screen.getByLabelText('Organization name')).toHaveValue('');
   });
 
   it('only offers English, Tamil and Hindi as language checkboxes', () => {
